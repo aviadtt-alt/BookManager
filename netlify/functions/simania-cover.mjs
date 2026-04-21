@@ -11,6 +11,24 @@ function extractItemIdFromText(text) {
   return match ? Number.parseInt(match[1], 10) : null;
 }
 
+function collectDebugMatches(html) {
+  if (!html) {
+    return {
+      itemIdMatches: [],
+      bookdetailsMatches: [],
+      hrefSamples: [],
+      hasHebrewTitle: false
+    };
+  }
+
+  return {
+    itemIdMatches: [...new Set(html.match(/item_id=\d+/gi) || [])].slice(0, 20),
+    bookdetailsMatches: [...new Set(html.match(/bookdetails\.php\?item_id=\d+/gi) || [])].slice(0, 20),
+    hrefSamples: [...new Set(html.match(/href="[^"]+"/gi) || [])].slice(0, 20),
+    hasHebrewTitle: html.includes('העמדה')
+  };
+}
+
 function browserHeaders() {
   return {
     'user-agent':
@@ -48,6 +66,7 @@ export default async (req) => {
 
     const finalUrl = searchResponse.url || searchUrl;
     const html = await searchResponse.text();
+    const debugInfo = collectDebugMatches(html);
 
     const redirectedItemId = extractItemIdFromText(finalUrl);
     const parsedItemId = redirectedItemId || extractItemIdFromText(html);
@@ -58,7 +77,8 @@ export default async (req) => {
         error: 'No item_id found in Simania response',
         searchUrl,
         finalUrl,
-        debugHtmlPreview: debug ? html.slice(0, 3000) : undefined
+        debugHtmlPreview: debug ? html.slice(0, 5000) : undefined,
+        debugInfo: debug ? debugInfo : undefined
       });
     }
 
