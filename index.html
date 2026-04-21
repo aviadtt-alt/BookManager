@@ -116,6 +116,7 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
 <div class="topbar">
   <h1>My book collection</h1>
   <div class="topbar-right">
+    <button class="btn" onclick="exportCsv()">Export CSV</button>
     <div id="owner-actions" style="display:none;gap:8px;flex-wrap:wrap">
       <button class="btn" onclick="openModal('import')">Import CSV</button>
       <button class="btn" onclick="openModal('wishlist')">+ Wishlist</button>
@@ -162,6 +163,7 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
 </form>
 </div>
 
+<script src="https://identity.netlify.com/v1/netlify-identity-widget.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script>
 /* ══════════════════════════════════════════════════════
@@ -169,13 +171,14 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
    ══════════════════════════════════════════════════════ */
 const SUPABASE_URL     = 'https://aqakiocbmsbkrbzcvikw.supabase.co';  // 'https://xxxx.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxYWtpb2NibXNia3JiemN2aWt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MTU3NTUsImV4cCI6MjA5MjE5MTc1NX0.dEkTWy9gjkpi2F9BgdL2mA0xRxmqeEP_tgAVilNsCWo'; // anon/public key
-const OWNER_PASSWORD   = 'a1v9i8a7d';  // your secret password
 const OWNER_EMAIL      = 'aviadtt@gmail.com';
+const OWNER_EMAILS     = [aviadtt@gmail.com]; // add more allowed editor emails here
 
 /* ══════════════════════════════════════════════════════ */
 
 let db = null, isOwner = false, books = [], currentTab = 'collection', csvFileContent = null;
 let pendingCover = null, coverFetchTimer = null;
+let identityUser = null;
 
 /* ── Supabase init ── */
 function initSupabase() {
@@ -185,7 +188,7 @@ function initSupabase() {
 }
 function showSetupBanner() {
   const b = document.getElementById('setup-banner'); b.style.display = 'block';
-  b.innerHTML = `<strong>Setup required</strong> — fill in SUPABASE_URL, SUPABASE_ANON_KEY and OWNER_PASSWORD at the top of this file, then host it online.<br>
+  b.innerHTML = `<strong>Setup required</strong> — fill in SUPABASE_URL and SUPABASE_ANON_KEY at the top of this file, then host it online.<br>
     Create a free Supabase project at <a href="https://supabase.com" target="_blank" style="color:inherit">supabase.com</a> and run this SQL:<br>
     <code>create table books (id bigint primary key, title text, writer text, status text, notes text, cover text, lent boolean default false, lent_to text, lent_date text, wishlist boolean default false, created_at timestamptz default now());</code><br>
     <code>alter table books enable row level security;</code><br>
@@ -369,20 +372,53 @@ async function fetchCover(title, writer) {
 }
 
 /* ── Auth ── */
-function checkOwnerSession() { isOwner = sessionStorage.getItem('owner') === 'true'; updateAuthUI(); }
+function normalizeEmail(email) {
+  return (email || '').trim().toLowerCase();
+}
+function isAllowedOwner(user) {
+  const email = normalizeEmail(user?.email || user?.user_metadata?.email);
+  return !!email && OWNER_EMAILS.map(normalizeEmail).includes(email);
+}
+function syncOwnerFromIdentity(user) {
+  identityUser = user || (window.netlifyIdentity?.currentUser?.() || null);
+  isOwner = isAllowedOwner(identityUser);
+  updateAuthUI();
+}
+function checkOwnerSession() { syncOwnerFromIdentity(window.netlifyIdentity?.currentUser?.() || null); }
+function initNetlifyIdentityAuth() {
+  if (!window.netlifyIdentity) { updateAuthUI(); return; }
+  window.netlifyIdentity.init();
+  window.netlifyIdentity.on('init', syncOwnerFromIdentity);
+  window.netlifyIdentity.on('login', user => {
+    window.netlifyIdentity.close();
+    syncOwnerFromIdentity(user);
+  });
+  window.netlifyIdentity.on('logout', () => syncOwnerFromIdentity(null));
+  window.netlifyIdentity.on('error', err => console.error('[Identity] Error:', err));
+}
+function openOwnerLogin() {
+  if (!window.netlifyIdentity) { alert('Netlify Identity is not available on this site yet.'); return; }
+  window.netlifyIdentity.open('login');
+}
 function updateAuthUI() {
   const oa = document.getElementById('owner-actions');
   const aa = document.getElementById('auth-area');
   if (isOwner) {
     oa.style.display = 'flex';
     aa.innerHTML = `<span class="owner-badge">Owner</span><button class="btn btn-ghost" onclick="logout()">Sign out</button>`;
+  } else if (identityUser) {
+    oa.style.display = 'none';
+    aa.innerHTML = `<span class="owner-badge" style="background:#E6F1FB;color:#0C447C">Viewer</span><button class="btn btn-ghost" onclick="logout()">Sign out</button>`;
   } else {
     oa.style.display = 'none';
-    aa.innerHTML = `<button class="btn btn-ghost" onclick="openModal('login')">Owner login</button>`;
+    aa.innerHTML = `<button class="btn btn-ghost" onclick="openOwnerLogin()">Owner login</button>`;
   }
   render();
 }
-function logout() { sessionStorage.removeItem('owner'); isOwner = false; updateAuthUI(); }
+function logout() {
+  if (window.netlifyIdentity) window.netlifyIdentity.logout();
+  else syncOwnerFromIdentity(null);
+}
 
 /* ── Status badge ── */
 function statusBadge(s) {
@@ -519,8 +555,9 @@ function openModal(mode,id) {
 
   if (mode==='login') {
     body=`<h2>Owner login</h2>
-      <div class="fg"><label>Password</label>
-        <input type="password" id="pw-input" placeholder="Enter owner password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <p style="font-size:14px;color:var(--text-secondary);line-height:1.6;margin-bottom:1rem">
+        Sign in with an invited owner account to manage the collection.
+      </p>
       <div id="login-error" style="font-size:13px;color:#A32D2D;min-height:18px"></div>
       <div class="modal-actions">
         <button class="btn" onclick="closeModal()">Cancel</button>
@@ -599,7 +636,6 @@ function openModal(mode,id) {
   document.getElementById('modal-root').innerHTML =
     `<div class="modal-overlay" onclick="bgClose(event)"><div class="modal">${body}</div></div>`;
 
-  if (mode==='login') setTimeout(()=>document.getElementById('pw-input')?.focus(), 50);
   if ((mode==='add'||mode==='wishlist')||(mode==='edit'&&!b.cover)) scheduleCoverFetch();
 }
 
@@ -636,10 +672,8 @@ function netlifyFormEndpoint() {
 }
 
 function doLogin() {
-  const pw = (document.getElementById('pw-input').value||'').trim();
-  if (!OWNER_PASSWORD) { document.getElementById('login-error').textContent='No password set in file.'; return; }
-  if (pw===OWNER_PASSWORD) { isOwner=true; sessionStorage.setItem('owner','true'); closeModal(); updateAuthUI(); }
-  else { document.getElementById('login-error').textContent='Incorrect password.'; document.getElementById('pw-input').value=''; document.getElementById('pw-input').focus(); }
+  closeModal();
+  openOwnerLogin();
 }
 
 /* ── Borrow request ── */
@@ -779,8 +813,34 @@ function readCsvFile(file) {
 }
 function parseCSVLine(line){const res=[];let cur='',inQ=false;for(const c of line){if(c==='"')inQ=!inQ;else if(c===','&&!inQ){res.push(cur.trim());cur='';}else cur+=c;}res.push(cur.trim());return res;}
 function parseStatus(raw){if(!raw)return 'want';const r=raw.toLowerCase().trim();if(r==='v'||r==='read'||r==='done'||r==='\u2713')return 'read';if(r==='reading'||r==='in progress')return 'reading';return 'want';}
+function formatStatusForCsv(status){if(status==='read')return 'Read';if(status==='reading')return 'Reading';return 'Want to read';}
+function csvCell(value){const s=String(value ?? '');return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}
 function findHeaderRow(rows){for(let i=0;i<rows.length;i++){if(rows[i].some(c=>c.toLowerCase().includes('book')))return i;}return -1;}
 function colIdx(h,kws){for(let i=0;i<h.length;i++){if(kws.some(k=>h[i].includes(k)))return i;}return -1;}
+
+function exportCsv() {
+  const rows = [['Book name','Writer','Read status','Lend status','Lend date']];
+  books.filter(b=>!b.wishlist).forEach(b=>{
+    rows.push([
+      b.title || '',
+      b.writer || '',
+      formatStatusForCsv(b.status),
+      b.lentTo || '',
+      b.lentDate || ''
+    ]);
+  });
+  const csv = rows.map(row=>row.map(csvCell).join(',')).join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const stamp = new Date().toISOString().slice(0,10);
+  a.href = url;
+  a.download = `book-collection-${stamp}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 async function doImport() {
   if (!isOwner) return;
@@ -823,7 +883,7 @@ async function doImport() {
 }
 
 /* ── Boot ── */
-checkOwnerSession();
+initNetlifyIdentityAuth();
 initSupabase();
 </script>
 </body>
