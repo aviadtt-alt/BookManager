@@ -3,38 +3,11 @@ function buildCoverUrl(itemId) {
   return `https://cdn.simania.co.il/bookimages/covers${prefix}/${itemId}.jpg`;
 }
 
-function extractItemIdFromText(text) {
-  if (!text) return null;
-  const match =
-    text.match(/bookdetails\.php\?item_id=(\d+)/i) ||
-    text.match(/item_id=(\d+)/i);
-  return match ? Number.parseInt(match[1], 10) : null;
-}
-
-function collectDebugMatches(html) {
-  if (!html) {
-    return {
-      itemIdMatches: [],
-      bookdetailsMatches: [],
-      hrefSamples: [],
-      hasHebrewTitle: false
-    };
-  }
-
-  return {
-    itemIdMatches: [...new Set(html.match(/item_id=\d+/gi) || [])].slice(0, 20),
-    bookdetailsMatches: [...new Set(html.match(/bookdetails\.php\?item_id=\d+/gi) || [])].slice(0, 20),
-    hrefSamples: [...new Set(html.match(/href="[^"]+"/gi) || [])].slice(0, 20),
-    hasHebrewTitle: html.includes('העמדה')
-  };
-}
-
 function browserHeaders() {
   return {
     'user-agent':
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    'accept':
-      'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'accept': 'application/json, text/plain, */*',
     'accept-language': 'he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7',
     'cache-control': 'no-cache',
     pragma: 'no-cache'
@@ -55,39 +28,52 @@ export default async (req) => {
       );
     }
 
-    const query = `${title} ${writer}`.trim().replace(/\s+/g, '+');
-    const searchUrl = `https://simania.co.il/searchBooks.php?query=${query}`;
+    const query = `${title} ${writer}`.trim();
+    const apiUrl = `https://simania.co.il/api/search?${new URLSearchParams({
+      query,
+      page: '1'
+    }).toString()}`;
 
-    const searchResponse = await fetch(searchUrl, {
+    const searchResponse = await fetch(apiUrl, {
       method: 'GET',
       headers: browserHeaders(),
       redirect: 'follow'
     });
+    if (!searchResponse.ok) {
+      return Response.json(
+        {
+          ok: false,
+          error: `Simania API HTTP ${searchResponse.status}`,
+          apiUrl
+        },
+        { status: 502 }
+      );
+    }
 
-    const finalUrl = searchResponse.url || searchUrl;
-    const html = await searchResponse.text();
-    const debugInfo = collectDebugMatches(html);
+    const payload = await searchResponse.json();
+    const books = Array.isArray(payload?.data?.books) ? payload.data.books : [];
+    const firstBook = books[0] || null;
+    const itemId = Number.parseInt(firstBook?.ID ?? firstBook?.BOOK_ID, 10);
+    const coverUrl = firstBook?.COVER || (
+      Number.isFinite(itemId) ? buildCoverUrl(itemId) : null
+    );
 
-    const redirectedItemId = extractItemIdFromText(finalUrl);
-    const parsedItemId = redirectedItemId || extractItemIdFromText(html);
-
-    if (!parsedItemId) {
+    if (!firstBook || !Number.isFinite(itemId) || !coverUrl) {
       return Response.json({
         ok: false,
-        error: 'No item_id found in Simania response',
-        searchUrl,
-        finalUrl,
-        debugHtmlPreview: debug ? html.slice(0, 5000) : undefined,
-        debugInfo: debug ? debugInfo : undefined
+        error: 'No book result found in Simania API response',
+        apiUrl,
+        debugPayload: debug ? payload : undefined
       });
     }
 
     return Response.json({
       ok: true,
-      itemId: parsedItemId,
-      coverUrl: buildCoverUrl(parsedItemId),
-      searchUrl,
-      finalUrl
+      itemId,
+      coverUrl,
+      apiUrl,
+      title: firstBook?.NAME || null,
+      author: firstBook?.AUTHOR || null
     });
   } catch (error) {
     return Response.json(
