@@ -151,7 +151,7 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
 <div id="tab-wishlist" style="display:none"><div id="wishlist-list"></div></div>
 <div id="tab-stats" style="display:none"><div id="stats-content"></div></div>
 <div id="modal-root"></div>
-<form name="borrow-request" netlify netlify-honeypot="bot-field" hidden>
+<form name="borrow-request" method="POST" action="/" data-netlify="true" netlify-honeypot="bot-field" hidden>
   <input type="hidden" name="form-name" value="borrow-request">
   <input type="text" name="book_title">
   <input type="text" name="book_writer">
@@ -631,6 +631,10 @@ function encodeFormBody(data) {
   return new URLSearchParams(data).toString();
 }
 
+function netlifyFormEndpoint() {
+  return window.location.pathname || '/';
+}
+
 function doLogin() {
   const pw = (document.getElementById('pw-input').value||'').trim();
   if (!OWNER_PASSWORD) { document.getElementById('login-error').textContent='No password set in file.'; return; }
@@ -654,27 +658,32 @@ async function submitBorrowRequest(bookId) {
   status.innerHTML='<span class="spinner"></span>Sending request…';
 
   try {
-    const response = await fetch('/', {
+    const formData = {
+      'form-name': 'borrow-request',
+      'book_title': book.title || '',
+      'book_writer': book.writer || '',
+      'requester_name': name,
+      'contact': normalizedContact,
+      'message': msg,
+      'bot-field': ''
+    };
+
+    const response = await fetch(netlifyFormEndpoint(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: encodeFormBody({
-        'form-name': 'borrow-request',
-        'book_title': book.title || '',
-        'book_writer': book.writer || '',
-        'requester_name': name,
-        'contact': normalizedContact,
-        'message': msg,
-        'bot-field': ''
-      })
+      body: encodeFormBody(formData)
     });
 
-    if (!response.ok) throw new Error(`Form HTTP error: ${response.status}`);
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '');
+      throw new Error(`Form HTTP error: ${response.status} ${errorText}`.trim());
+    }
 
     status.style.color='#27500A';
     status.textContent='Request sent successfully. I will get your details by email.';
     setTimeout(closeModal, 2200);
   } catch (err) {
-    console.error('[Borrow Request] Submit failed:', err);
+    console.error('[Borrow Request] Submit failed:', err, { endpoint: netlifyFormEndpoint() });
     status.style.color='#A32D2D';
     status.textContent='Could not send the request right now. Please try again in a moment.';
   }
