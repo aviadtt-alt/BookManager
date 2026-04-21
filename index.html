@@ -151,6 +151,15 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
 <div id="tab-wishlist" style="display:none"><div id="wishlist-list"></div></div>
 <div id="tab-stats" style="display:none"><div id="stats-content"></div></div>
 <div id="modal-root"></div>
+<form name="borrow-request" netlify netlify-honeypot="bot-field" hidden>
+  <input type="hidden" name="form-name" value="borrow-request">
+  <input type="text" name="book_title">
+  <input type="text" name="book_writer">
+  <input type="text" name="requester_name">
+  <input type="text" name="contact">
+  <textarea name="message"></textarea>
+  <input type="text" name="bot-field">
+</form>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -528,6 +537,9 @@ function openModal(mode,id) {
         <input id="borrow-name" placeholder="Full name"></div>
       <div class="fg"><label>Email or phone</label>
         <input id="borrow-contact" placeholder="email@example.com or 05x-xxxxxxx"></div>
+      <div style="font-size:12px;color:var(--text-secondary);margin-top:-.35rem;margin-bottom:.65rem">
+        Enter a valid email address or an Israeli mobile number.
+      </div>
       <div class="fg"><label>Message (optional)</label>
         <textarea id="borrow-msg" placeholder="When would you need it? Any other details..."></textarea></div>
       <div id="borrow-status" style="font-size:13px;min-height:18px;margin-top:.25rem"></div>
@@ -595,6 +607,30 @@ function bgClose(e) { if (e.target.classList.contains('modal-overlay')) closeMod
 function closeModal() { document.getElementById('modal-root').innerHTML=''; clearTimeout(coverFetchTimer); }
 
 /* ── Login ── */
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function normalizeIsraeliPhone(value) {
+  const cleaned = (value || '').replace(/[^\d+]/g, '');
+  if (/^05\d{8}$/.test(cleaned)) return cleaned;
+  if (/^\+9725\d{8}$/.test(cleaned)) return cleaned;
+  if (/^9725\d{8}$/.test(cleaned)) return `+${cleaned}`;
+  return null;
+}
+
+function isValidIsraeliPhone(value) {
+  return !!normalizeIsraeliPhone(value);
+}
+
+function isValidContact(value) {
+  return isValidEmail(value) || isValidIsraeliPhone(value);
+}
+
+function encodeFormBody(data) {
+  return new URLSearchParams(data).toString();
+}
+
 function doLogin() {
   const pw = (document.getElementById('pw-input').value||'').trim();
   if (!OWNER_PASSWORD) { document.getElementById('login-error').textContent='No password set in file.'; return; }
@@ -603,7 +639,7 @@ function doLogin() {
 }
 
 /* ── Borrow request ── */
-function submitBorrowRequest(bookId) {
+async function submitBorrowRequest(bookId) {
   const book = books.find(x=>x.id===bookId)||{};
   const name = (document.getElementById('borrow-name').value||'').trim();
   const contact = (document.getElementById('borrow-contact').value||'').trim();
@@ -611,19 +647,37 @@ function submitBorrowRequest(bookId) {
   const status = document.getElementById('borrow-status');
 
   if (!name||!contact) { status.style.color='#A32D2D'; status.textContent='Please fill in your name and contact details.'; return; }
+  if (!isValidContact(contact)) { status.style.color='#A32D2D'; status.textContent='Please enter a valid email address or an Israeli mobile number.'; return; }
 
-  const subject = encodeURIComponent(`Book borrow request: ${book.title}`);
-  const body = encodeURIComponent(
-    `Hi,\n\nI'd like to borrow the following book:\n\nTitle: ${book.title}\nAuthor: ${book.writer}\n\nRequester details:\nName: ${name}\nContact: ${contact}${msg?'\n\nMessage: '+msg:''}\n\nSent from My Book Collection app.`
-  );
-  const mailtoLink = `mailto:${OWNER_EMAIL}?subject=${subject}&body=${body}`;
+  const normalizedContact = isValidIsraeliPhone(contact) ? normalizeIsraeliPhone(contact) : contact;
+  status.style.color='var(--text-secondary)';
+  status.innerHTML='<span class="spinner"></span>Sending request…';
 
-  // Open mail client
-  window.location.href = mailtoLink;
+  try {
+    const response = await fetch('/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: encodeFormBody({
+        'form-name': 'borrow-request',
+        'book_title': book.title || '',
+        'book_writer': book.writer || '',
+        'requester_name': name,
+        'contact': normalizedContact,
+        'message': msg,
+        'bot-field': ''
+      })
+    });
 
-  status.style.color='#27500A';
-  status.textContent='Your mail client has been opened with the request. Please send the email to complete your request.';
-  setTimeout(closeModal, 3000);
+    if (!response.ok) throw new Error(`Form HTTP error: ${response.status}`);
+
+    status.style.color='#27500A';
+    status.textContent='Request sent successfully. I will get your details by email.';
+    setTimeout(closeModal, 2200);
+  } catch (err) {
+    console.error('[Borrow Request] Submit failed:', err);
+    status.style.color='#A32D2D';
+    status.textContent='Could not send the request right now. Please try again in a moment.';
+  }
 }
 
 /* ── Cover fetch in modal ── */
