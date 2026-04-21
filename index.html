@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="he" dir="auto">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="referrer" content="no-referrer">
+<title>My Book Collection</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg-primary:#ffffff;--bg-secondary:#f5f5f0;--bg-tertiary:#eeede8;
+  --text-primary:#1a1a1a;--text-secondary:#666660;--text-tertiary:#999993;
+  --border-faint:rgba(0,0,0,0.12);--border-mid:rgba(0,0,0,0.22);--border-strong:rgba(0,0,0,0.32);
+  --radius-md:8px;--radius-lg:12px;
+  --sans:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;
+  --mono:'SFMono-Regular',Consolas,monospace;
+}
+@media(prefers-color-scheme:dark){:root{
+  --bg-primary:#1e1e1e;--bg-secondary:#2a2a2a;--bg-tertiary:#333;
+  --text-primary:#f0f0f0;--text-secondary:#aaa;--text-tertiary:#777;
+  --border-faint:rgba(255,255,255,0.1);--border-mid:rgba(255,255,255,0.2);--border-strong:rgba(255,255,255,0.32);
+}}
+body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);color:var(--text-primary)}
+.app{padding:1.5rem 1rem;max-width:1000px;margin:0 auto}
+.topbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:1.5rem}
+.topbar h1{font-size:22px;font-weight:500}
+.topbar-right{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.owner-badge{font-size:12px;padding:4px 10px;border-radius:var(--radius-md);background:#EAF3DE;color:#27500A;font-weight:500}
+.stats-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:1.5rem}
+.stat-card{background:var(--bg-secondary);border-radius:var(--radius-md);padding:.75rem 1rem}
+.stat-label{font-size:12px;color:var(--text-secondary);margin-bottom:4px}
+.stat-value{font-size:20px;font-weight:500}
+.stat-sub{font-size:11px;color:var(--text-tertiary);margin-top:2px}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1rem}
+.controls input,.controls select{flex:1;min-width:130px;font-size:14px;padding:8px 12px;border-radius:var(--radius-md);border:.5px solid var(--border-mid);background:var(--bg-primary);color:var(--text-primary)}
+.btn{padding:8px 14px;border-radius:var(--radius-md);border:.5px solid var(--border-mid);background:var(--bg-primary);color:var(--text-primary);cursor:pointer;font-size:14px;white-space:nowrap;transition:background .15s}
+.btn:hover{background:var(--bg-secondary)}
+.btn-primary{background:var(--text-primary);color:var(--bg-primary);border-color:var(--text-primary)}
+.btn-primary:hover{opacity:.85}
+.btn-sm{padding:4px 10px;font-size:12px}
+.btn-ghost{border-color:transparent;color:var(--text-secondary);font-size:13px}
+.btn-ghost:hover{background:var(--bg-secondary);color:var(--text-primary)}
+.btn-danger{color:#A32D2D}
+.btn-borrow{background:#EEEDFE;color:#3C3489;border-color:#AFA9EC;font-size:12px;padding:4px 10px}
+.btn-borrow:hover{background:#AFA9EC}
+.tabs{display:flex;border-bottom:.5px solid var(--border-faint);margin-bottom:1rem}
+.tab{padding:8px 16px;font-size:14px;cursor:pointer;color:var(--text-secondary);border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none}
+.tab.active{color:var(--text-primary);border-bottom-color:var(--text-primary);font-weight:500}
+/* Book grid — cover layout */
+.book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+.book-card{background:var(--bg-primary);border:.5px solid var(--border-faint);border-radius:var(--radius-lg);overflow:hidden;display:flex;flex-direction:column}
+.book-card.lent{border-top:3px solid #EF9F27}
+.book-cover-wrap{width:100%;aspect-ratio:2/3;background:var(--bg-secondary);flex-shrink:0;overflow:hidden;position:relative}
+.book-cover-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.book-cover-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px}
+.book-cover-ph svg{opacity:.2}
+.book-cover-ph span{font-size:11px;color:var(--text-tertiary);text-align:center;padding:0 4px}
+.cover-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg-secondary);font-size:11px;color:var(--text-tertiary)}
+.book-body{padding:.75rem 1rem;display:flex;flex-direction:column;gap:5px;flex:1}
+.book-title{font-weight:500;font-size:14px;line-height:1.3}
+.book-author{font-size:12px;color:var(--text-secondary)}
+.book-meta{display:flex;gap:5px;flex-wrap:wrap;margin-top:3px}
+.badge{font-size:10px;padding:2px 7px;border-radius:var(--radius-md);font-weight:500}
+.badge-read{background:#EAF3DE;color:#27500A}
+.badge-reading{background:#E6F1FB;color:#0C447C}
+.badge-want{background:#EEEDFE;color:#3C3489}
+.badge-wishlist{background:#FAEEDA;color:#633806}
+.badge-lent{background:#FAEEDA;color:#633806}
+.lent-info{font-size:11px;color:var(--text-secondary)}
+.book-notes{font-size:11px;color:var(--text-secondary);font-style:italic}
+.book-actions{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;border-top:.5px solid var(--border-faint);padding-top:7px}
+.empty{text-align:center;padding:3rem 1rem;color:var(--text-secondary);font-size:15px}
+.section-label{font-size:12px;font-weight:500;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.05em;margin:1.25rem 0 .6rem}
+.chart-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px}
+.chart-row-label{width:110px;color:var(--text-secondary);text-align:right;flex-shrink:0}
+.chart-bar-bg{flex:1;background:var(--bg-secondary);border-radius:4px;height:20px;overflow:hidden}
+.chart-bar-fill{height:100%;border-radius:4px}
+.chart-val{width:28px;font-weight:500}
+.insights-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:1.5rem}
+.insight-card{background:var(--bg-secondary);border-radius:var(--radius-md);padding:.75rem 1rem}
+.insight-label{font-size:12px;color:var(--text-secondary);margin-bottom:4px}
+.insight-value{font-size:15px;font-weight:500}
+/* Modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:flex-start;justify-content:center;padding:2.5rem 1rem;z-index:50;overflow-y:auto}
+.modal{background:var(--bg-primary);border-radius:var(--radius-lg);border:1px solid var(--border-strong);padding:1.75rem;width:100%;max-width:440px;box-shadow:0 8px 32px rgba(0,0,0,.22)}
+.modal h2{font-size:18px;font-weight:500;margin-bottom:1.25rem;padding-bottom:.75rem;border-bottom:.5px solid var(--border-faint)}
+.fg{margin-bottom:.85rem}
+.fg label{font-size:13px;color:var(--text-secondary);display:block;margin-bottom:4px}
+.fg input,.fg select,.fg textarea{width:100%;font-size:14px;padding:8px 12px;border-radius:var(--radius-md);border:.5px solid var(--border-mid);background:var(--bg-primary);color:var(--text-primary)}
+.fg textarea{resize:vertical;min-height:60px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:1.25rem;padding-top:.75rem;border-top:.5px solid var(--border-faint)}
+/* Cover preview in add/edit modal */
+.cover-row{display:flex;gap:12px;align-items:flex-start;margin-bottom:.85rem}
+.cover-thumb{width:72px;height:108px;border-radius:5px;border:.5px solid var(--border-mid);flex-shrink:0;overflow:hidden;background:var(--bg-secondary);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-tertiary);text-align:center;padding:4px;line-height:1.4}
+.cover-thumb img{width:100%;height:100%;object-fit:cover}
+.cover-status{font-size:11px;color:var(--text-secondary);margin-top:4px}
+/* CSV import */
+.file-drop{border:1.5px dashed var(--border-mid);border-radius:var(--radius-lg);padding:2rem 1rem;text-align:center;cursor:pointer;background:var(--bg-secondary);transition:background .15s}
+.file-drop:hover,.file-drop.drag{background:var(--bg-tertiary);border-color:var(--border-strong)}
+.file-drop p{font-size:14px;color:var(--text-secondary);margin-bottom:.25rem}
+.file-drop span{font-size:12px;color:var(--text-tertiary)}
+.file-chosen{font-size:13px;color:var(--text-primary);margin-top:.75rem;padding:.5rem .75rem;background:var(--bg-secondary);border-radius:var(--radius-md);display:none}
+.import-hint{font-size:12px;color:var(--text-secondary);line-height:1.6;margin-top:.75rem;padding:.75rem;background:var(--bg-secondary);border-radius:var(--radius-md)}
+.import-hint code{font-family:var(--mono);font-size:11px;background:var(--bg-primary);padding:1px 5px;border-radius:4px;border:.5px solid var(--border-faint)}
+.import-msg{font-size:13px;min-height:18px;margin-top:.5rem}
+.setup-banner{background:#E6F1FB;border:.5px solid #B5D4F4;border-radius:var(--radius-md);padding:.85rem 1rem;font-size:13px;color:#0C447C;margin-bottom:1rem;line-height:1.7}
+.setup-banner code{font-family:var(--mono);font-size:11px;background:rgba(255,255,255,.6);padding:1px 5px;border-radius:4px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border-mid);border-top-color:var(--text-primary);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:500px){.stats-grid{grid-template-columns:repeat(2,1fr)}.stat-card:last-child{grid-column:span 2}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+<div class="topbar">
+  <h1>My book collection</h1>
+  <div class="topbar-right">
+    <div id="owner-actions" style="display:none;gap:8px;flex-wrap:wrap">
+      <button class="btn" onclick="openModal('import')">Import CSV</button>
+      <button class="btn" onclick="openModal('wishlist')">+ Wishlist</button>
+      <button class="btn btn-primary" onclick="openModal('add')">+ Add book</button>
+    </div>
+    <div id="auth-area"></div>
+  </div>
+</div>
+
+<div id="setup-banner" class="setup-banner" style="display:none"></div>
+<div class="stats-grid" id="stats-grid"></div>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('collection',this)">Collection</button>
+  <button class="tab" onclick="switchTab('lent',this)">Lent out</button>
+  <button class="tab" onclick="switchTab('wishlist',this)">Wishlist</button>
+  <button class="tab" onclick="switchTab('stats',this)">Statistics</button>
+</div>
+
+<div id="tab-collection">
+  <div class="controls">
+    <input type="text" id="search" placeholder="Search by title or writer..." oninput="render()">
+    <select id="filterStatus" onchange="render()">
+      <option value="">All statuses</option>
+      <option value="read">Read</option>
+      <option value="reading">Currently reading</option>
+      <option value="want">Want to read</option>
+    </select>
+  </div>
+  <div id="book-list"></div>
+</div>
+<div id="tab-lent" style="display:none"><div id="lent-list"></div></div>
+<div id="tab-wishlist" style="display:none"><div id="wishlist-list"></div></div>
+<div id="tab-stats" style="display:none"><div id="stats-content"></div></div>
+<div id="modal-root"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+/* ══════════════════════════════════════════════════════
+   CONFIGURATION — fill these in after Supabase setup
+   ══════════════════════════════════════════════════════ */
+const SUPABASE_URL     = 'https://aqakiocbmsbkrbzcvikw.supabase.co';  // 'https://xxxx.supabase.co'
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFxYWtpb2NibXNia3JiemN2aWt3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY2MTU3NTUsImV4cCI6MjA5MjE5MTc1NX0.dEkTWy9gjkpi2F9BgdL2mA0xRxmqeEP_tgAVilNsCWo'; // anon/public key
+const OWNER_PASSWORD   = 'a1v9i8a7d';  // your secret password
+const OWNER_EMAIL      = 'aviadtt@gmail.com';
+
+/* ══════════════════════════════════════════════════════ */
+
+let db = null, isOwner = false, books = [], currentTab = 'collection', csvFileContent = null;
+let pendingCover = null, coverFetchTimer = null;
+
+/* ── Supabase init ── */
+function initSupabase() {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) { showSetupBanner(); loadFromLocalStorage(); return; }
+  try { db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); loadFromSupabase(); }
+  catch(e) { console.error(e); loadFromLocalStorage(); }
+}
+function showSetupBanner() {
+  const b = document.getElementById('setup-banner'); b.style.display = 'block';
+  b.innerHTML = `<strong>Setup required</strong> — fill in SUPABASE_URL, SUPABASE_ANON_KEY and OWNER_PASSWORD at the top of this file, then host it online.<br>
+    Create a free Supabase project at <a href="https://supabase.com" target="_blank" style="color:inherit">supabase.com</a> and run this SQL:<br>
+    <code>create table books (id bigint primary key, title text, writer text, status text, notes text, cover text, lent boolean default false, lent_to text, lent_date text, wishlist boolean default false, created_at timestamptz default now());</code><br>
+    <code>alter table books enable row level security;</code><br>
+    <code>create policy "public read" on books for select using (true);</code><br>
+    <code>create policy "anon write" on books for all using (true) with check (true);</code><br>
+    <em>Until configured, data saves in this browser only.</em>`;
+}
+async function loadFromSupabase() {
+  try {
+    const { data, error } = await db.from('books').select('*').order('id');
+    if (error) throw error;
+    books = (data||[]).map(dbToBook); render();
+  } catch(e) { console.warn('Supabase load failed:', e); loadFromLocalStorage(); }
+}
+async function saveToSupabase(book) {
+  const { error } = await db.from('books').upsert(bookToDb(book));
+  if (error) throw error;
+}
+async function deleteFromSupabase(id) {
+  const { error } = await db.from('books').delete().eq('id', id);
+  if (error) throw error;
+}
+function bookToDb(b) {
+  return { id:b.id, title:b.title, writer:b.writer, status:b.status, notes:b.notes,
+    cover:b.cover||null, lent:b.lent, lent_to:b.lentTo, lent_date:b.lentDate, wishlist:b.wishlist };
+}
+function dbToBook(r) {
+  return { id:r.id, title:r.title, writer:r.writer, status:r.status, notes:r.notes||'',
+    cover:r.cover||null, lent:r.lent||false, lentTo:r.lent_to||'', lentDate:r.lent_date||'', wishlist:r.wishlist||false };
+}
+const LS_KEY = 'bookshelf_v6';
+function loadFromLocalStorage() {
+  try { const d = localStorage.getItem(LS_KEY); if (d) books = JSON.parse(d); } catch(e) {}
+  render();
+}
+function saveToLocalStorage() { try { localStorage.setItem(LS_KEY, JSON.stringify(books)); } catch(e) {} }
+async function persistSave(book) { if (db) await saveToSupabase(book); else saveToLocalStorage(); }
+async function persistDelete(id) { if (db) await deleteFromSupabase(id); else saveToLocalStorage(); }
+
+/* ── Cover fetching via allorigins (handles both search results and single-result redirects) ── */
+async function fetchSimaniaCover(title, writer) {
+    const cleanTitle = decodeURIComponent(title);
+    const cleanWriter = decodeURIComponent(writer);
+    const searchTerm = title + " " + writer;
+    // 1. Encode only the search term
+    const encodedSearch = encodeURIComponent(searchTerm);
+
+    // 2. Build the Simania URL
+    const manualSearch = (title + " " + writer).replace(/ /g, "+");
+    const simaniaUrl = `https://simania.co.il/searchBooks.php?query=${manualSearch}`;
+
+    // 3. BUILD THE FINAL URL WITHOUT ENCODING THE ENTIRE STRING AGAIN
+    // We only encode the simaniaUrl part, not the whole proxy URL
+    const proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(simaniaUrl);
+
+    console.log("Debug - Final URL being fetched:", proxyUrl);
+
+  try {
+    const response = await fetch(proxyUrl, { signal: AbortSignal.timeout(12000) });
+    if (!response.ok) throw new Error(`Proxy HTTP error: ${response.status}`);
+
+    // allorigins /get returns JSON: { contents: "<html>...", status: { url: "...", http_code: 200 } }
+    const json = await response.json();
+    const html = json.contents;
+    const finalUrl = json.status?.url || '';
+
+    console.log("[Simania] Proxy status:", json.status?.http_code, "| Final URL:", finalUrl, "| HTML length:", html?.length);
+
+    if (!html || html.length < 100) {
+      console.warn("[Simania] Empty response from proxy");
+      return null;
+    }
+
+    // CASE 1: Single result — Simania redirected directly to bookdetails.php
+    // The final URL will look like: https://simania.co.il/bookdetails.php?item_id=XXXXXX
+    const redirectMatch = finalUrl.match(/bookdetails\.php\?item_id=(\d+)/);
+    if (redirectMatch) {
+      const itemId = parseInt(redirectMatch[1], 10);
+      const prefix = Math.floor(itemId / 10000);
+      const coverUrl = `https://cdn.simania.co.il/bookimages/covers${prefix}/${itemId}.jpg`;
+      console.log("[Simania] Single-result redirect → item_id:", itemId, "→", coverUrl);
+      return coverUrl;
+    }
+
+    // CASE 2: Multiple results — parse the HTML for the first bookdetails link
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const links = Array.from(doc.querySelectorAll('a[href*="item_id="]'));
+    console.log("[Simania] Links with item_id found in HTML:", links.length);
+
+    if (links.length === 0) {
+      // Also try a raw regex on the HTML string as a fallback
+      const rawMatch = html.match(/bookdetails\.php\?item_id=(\d+)/);
+      if (!rawMatch) { console.warn("[Simania] No item_id found anywhere"); return null; }
+      const itemId = parseInt(rawMatch[1], 10);
+      const prefix = Math.floor(itemId / 10000);
+      return `https://cdn.simania.co.il/bookimages/covers${prefix}/${itemId}.jpg`;
+    }
+
+    const firstHref = links[0].getAttribute('href') || links[0].href;
+    const match = firstHref.match(/item_id=(\d+)/);
+    if (!match) { console.warn("[Simania] Could not extract item_id from link:", firstHref); return null; }
+
+    const itemId = parseInt(match[1], 10);
+    const prefix = Math.floor(itemId / 10000);
+    const coverUrl = `https://cdn.simania.co.il/bookimages/covers${prefix}/${itemId}.jpg`;
+    console.log("[Simania] Multi-result → item_id:", itemId, "→", coverUrl);
+    return coverUrl;
+
+  } catch (err) {
+    console.error("[Simania] Fetch failed:", err);
+    return null;
+  }
+}
+
+async function fetchGoogleBooksCover(title, writer) {
+  try {
+    const q = encodeURIComponent(`${title} ${writer}`);
+    const r = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${q}&maxResults=1`, { signal: AbortSignal.timeout(6000) });
+    const d = await r.json();
+    const img = d?.items?.[0]?.volumeInfo?.imageLinks;
+    if (!img) return null;
+    return (img.thumbnail||img.smallThumbnail||'').replace('http:','https:').replace(/zoom=\d/,'zoom=2') || null;
+  } catch(e) { return null; }
+}
+
+function buildSimaniaCoverUrl(itemId) {
+  const prefix = Math.floor(itemId / 10000);
+  return `https://cdn.simania.co.il/bookimages/covers${prefix}/${itemId}.jpg`;
+}
+
+function extractSimaniaItemId(html, finalUrl = '') {
+  const redirectMatch = finalUrl.match(/bookdetails\.php\?item_id=(\d+)/i);
+  if (redirectMatch) return parseInt(redirectMatch[1], 10);
+
+  if (!html || html.length < 100) return null;
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const firstLink = doc.querySelector('a[href*="bookdetails.php?item_id="], a[href*="item_id="]');
+  const firstHref = firstLink?.getAttribute('href') || firstLink?.href || '';
+  const linkMatch = firstHref.match(/item_id=(\d+)/i);
+  if (linkMatch) return parseInt(linkMatch[1], 10);
+
+  const rawMatch = html.match(/bookdetails\.php\?item_id=(\d+)/i) || html.match(/item_id=(\d+)/i);
+  if (rawMatch) return parseInt(rawMatch[1], 10);
+
+  return null;
+}
+
+async function fetchSimaniaCover(title, writer) {
+  const params = new URLSearchParams({
+    title: (title || '').trim(),
+    writer: (writer || '').trim()
+  });
+
+  try {
+    const response = await fetch(`/.netlify/functions/simania-cover?${params.toString()}`, {
+      signal: AbortSignal.timeout(10000),
+      cache: 'no-store'
+    });
+    if (!response.ok) throw new Error(`Function HTTP error: ${response.status}`);
+
+    const data = await response.json();
+    console.log('[Simania Function] Response:', data);
+    return data?.ok ? data.coverUrl || buildSimaniaCoverUrl(data.itemId) : null;
+  } catch (err) {
+    console.error('[Simania Function] Fetch failed:', err);
+    return null;
+  }
+}
+
+function isHebrew(str) { return /[\u0590-\u05FF]/.test(str); }
+
+async function fetchCover(title, writer) {
+  if (isHebrew(title)) {
+    return (await fetchSimaniaCover(title, writer)) || (await fetchGoogleBooksCover(title, writer));
+  } else {
+    return (await fetchGoogleBooksCover(title, writer)) || (await fetchSimaniaCover(title, writer));
+  }
+}
+
+/* ── Auth ── */
+function checkOwnerSession() { isOwner = sessionStorage.getItem('owner') === 'true'; updateAuthUI(); }
+function updateAuthUI() {
+  const oa = document.getElementById('owner-actions');
+  const aa = document.getElementById('auth-area');
+  if (isOwner) {
+    oa.style.display = 'flex';
+    aa.innerHTML = `<span class="owner-badge">Owner</span><button class="btn btn-ghost" onclick="logout()">Sign out</button>`;
+  } else {
+    oa.style.display = 'none';
+    aa.innerHTML = `<button class="btn btn-ghost" onclick="openModal('login')">Owner login</button>`;
+  }
+  render();
+}
+function logout() { sessionStorage.removeItem('owner'); isOwner = false; updateAuthUI(); }
+
+/* ── Status badge ── */
+function statusBadge(s) {
+  const map = { read:['badge-read','Read'], reading:['badge-reading','Reading'], want:['badge-want','Want to read'] };
+  const [cls,label] = map[s]||['',''];
+  return `<span class="badge ${cls}">${label}</span>`;
+}
+
+/* ── Book card ── */
+function coverHtml(b) {
+  const ph = `<div class="book-cover-ph"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2" width="18" height="20" rx="2"/><path d="M7 6h10M7 10h10M7 14h6"/></svg><span>No cover</span></div>`;
+  if (!b.cover) return ph;
+  return `<img src="${b.cover}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.innerHTML='${ph.replace(/'/g,'\\'+'&#39;')}'" >`;
+}
+
+function bookCard(b) {
+  const lentInfo = b.lent ? `<div class="lent-info">Lent to <strong>${b.lentTo}</strong>${b.lentDate?' &middot; '+b.lentDate:''}</div>` : '';
+  // Borrow button: show only for non-lent books in guest view, or owner can still see it
+  const borrowBtn = !b.lent && !b.wishlist
+    ? `<button class="btn btn-borrow" onclick="openModal('borrow',${b.id})">Request borrow</button>` : '';
+  const ownerBtns = isOwner ? `
+    <button class="btn btn-sm" onclick="editBook(${b.id})">Edit</button>
+    ${b.lent
+      ? `<button class="btn btn-sm" onclick="returnBook(${b.id})">Returned</button>`
+      : `<button class="btn btn-sm" onclick="lendBook(${b.id})">Lend out</button>`}
+    <button class="btn btn-sm btn-danger" onclick="deleteBook(${b.id})">Remove</button>` : '';
+  const hasActions = borrowBtn || ownerBtns;
+  return `<div class="book-card${b.lent?' lent':''}">
+    <div class="book-cover-wrap">${coverHtml(b)}</div>
+    <div class="book-body">
+      <div class="book-title">${b.title}</div>
+      <div class="book-author">${b.writer}</div>
+      <div class="book-meta">
+        ${b.wishlist?'<span class="badge badge-wishlist">Wishlist</span>':statusBadge(b.status)}
+        ${b.lent?'<span class="badge badge-lent">Lent out</span>':''}
+      </div>
+      ${b.notes?`<div class="book-notes">"${b.notes}"</div>`:''}
+      ${lentInfo}
+      ${hasActions?`<div class="book-actions">${borrowBtn}${ownerBtns}</div>`:''}
+    </div>
+  </div>`;
+}
+
+/* ── Render ── */
+function renderCollection() {
+  const q = document.getElementById('search').value.toLowerCase();
+  const fs = document.getElementById('filterStatus').value;
+  const filtered = books.filter(b => {
+    if (b.wishlist) return false;
+    if (q && !b.title.toLowerCase().includes(q) && !b.writer.toLowerCase().includes(q)) return false;
+    if (fs && b.status !== fs) return false;
+    return true;
+  });
+  document.getElementById('book-list').innerHTML = filtered.length
+    ? `<div class="book-grid">${filtered.map(bookCard).join('')}</div>`
+    : '<div class="empty">No books found.</div>';
+}
+function renderLent() {
+  const lent = books.filter(b => b.lent);
+  document.getElementById('lent-list').innerHTML = lent.length
+    ? `<div class="book-grid">${lent.map(bookCard).join('')}</div>`
+    : '<div class="empty">No books currently lent out.</div>';
+}
+function renderWishlist() {
+  const wish = books.filter(b => b.wishlist);
+  document.getElementById('wishlist-list').innerHTML = wish.length
+    ? `<div class="book-grid">${wish.map(bookCard).join('')}</div>`
+    : '<div class="empty">Your wishlist is empty.</div>';
+}
+function renderStats() {
+  const col = books.filter(b => !b.wishlist);
+  const read = col.filter(b=>b.status==='read').length;
+  const reading = col.filter(b=>b.status==='reading').length;
+  const want = col.filter(b=>b.status==='want').length;
+  const lent = col.filter(b=>b.lent).length;
+  const total = col.length, pct = total?Math.round(read/total*100):0;
+  const wc={}; col.forEach(b=>{wc[b.writer]=(wc[b.writer]||0)+1;});
+  const top = Object.entries(wc).sort((a,b)=>b[1]-a[1])[0];
+  const bars=[{label:'Read',count:read,color:'#639922'},{label:'Reading',count:reading,color:'#378ADD'},{label:'Want',count:want,color:'#7F77DD'},{label:'Lent',count:lent,color:'#EF9F27'}];
+  const max = Math.max(...bars.map(b=>b.count),1);
+  document.getElementById('stats-content').innerHTML = `
+    <div class="insights-grid">
+      <div class="insight-card"><div class="insight-label">Books read</div><div class="insight-value">${read} of ${total} (${pct}%)</div></div>
+      <div class="insight-card"><div class="insight-label">Currently reading</div><div class="insight-value">${reading} book${reading!==1?'s':''}</div></div>
+      <div class="insight-card"><div class="insight-label">Most read writer</div><div class="insight-value">${top?top[0]+' ('+top[1]+')':'—'}</div></div>
+      <div class="insight-card"><div class="insight-label">Lent out</div><div class="insight-value">${lent} book${lent!==1?'s':''}</div></div>
+    </div>
+    <div class="section-label">Breakdown</div>
+    <div>${bars.map(b=>`<div class="chart-row"><div class="chart-row-label">${b.label}</div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${Math.round(b.count/max*100)}%;background:${b.color}"></div></div><div class="chart-val">${b.count}</div></div>`).join('')}</div>`;
+}
+function renderTopStats() {
+  const col = books.filter(b=>!b.wishlist);
+  const read = col.filter(b=>b.status==='read').length;
+  const pct = col.length?Math.round(read/col.length*100):0;
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total books</div><div class="stat-value">${col.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Read</div><div class="stat-value">${read}</div><div class="stat-sub">${pct}%</div></div>
+    <div class="stat-card"><div class="stat-label">Reading now</div><div class="stat-value">${col.filter(b=>b.status==='reading').length}</div></div>
+    <div class="stat-card"><div class="stat-label">Lent out</div><div class="stat-value">${col.filter(b=>b.lent).length}</div></div>
+    <div class="stat-card"><div class="stat-label">Wishlist</div><div class="stat-value">${books.filter(b=>b.wishlist).length}</div></div>`;
+}
+function render() {
+  renderTopStats();
+  if (currentTab==='collection') renderCollection();
+  else if (currentTab==='lent') renderLent();
+  else if (currentTab==='wishlist') renderWishlist();
+  else if (currentTab==='stats') renderStats();
+}
+function switchTab(tab,el) {
+  currentTab=tab;
+  ['collection','lent','wishlist','stats'].forEach(t=>document.getElementById('tab-'+t).style.display=t===tab?'block':'none');
+  document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active'); render();
+}
+
+/* ── Modals ── */
+let editingId=null, modalMode='add';
+
+function openModal(mode,id) {
+  modalMode=mode; editingId=id||null; csvFileContent=null; pendingCover=null;
+  const b = id?books.find(x=>x.id===id)||{}:{};
+  const isWishlist = mode==='wishlist'&&!id;
+  let body='';
+
+  if (mode==='login') {
+    body=`<h2>Owner login</h2>
+      <div class="fg"><label>Password</label>
+        <input type="password" id="pw-input" placeholder="Enter owner password" onkeydown="if(event.key==='Enter')doLogin()"></div>
+      <div id="login-error" style="font-size:13px;color:#A32D2D;min-height:18px"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="doLogin()">Login</button>
+      </div>`;
+
+  } else if (mode==='borrow') {
+    const book = books.find(x=>x.id===id)||{};
+    body=`<h2>Request to borrow</h2>
+      <p style="font-size:14px;color:var(--text-secondary);margin-bottom:1rem">
+        <strong style="color:var(--text-primary)">${book.title}</strong><br>${book.writer}
+      </p>
+      <div class="fg"><label>Your name</label>
+        <input id="borrow-name" placeholder="Full name"></div>
+      <div class="fg"><label>Email or phone</label>
+        <input id="borrow-contact" placeholder="email@example.com or 05x-xxxxxxx"></div>
+      <div class="fg"><label>Message (optional)</label>
+        <textarea id="borrow-msg" placeholder="When would you need it? Any other details..."></textarea></div>
+      <div id="borrow-status" style="font-size:13px;min-height:18px;margin-top:.25rem"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="submitBorrowRequest(${id})">Send request</button>
+      </div>`;
+
+  } else if (mode==='import') {
+    body=`<h2>Import from Google Sheets</h2>
+      <div class="file-drop" id="drop-zone" onclick="document.getElementById('csv-file').click()"
+        ondragover="event.preventDefault();this.classList.add('drag')"
+        ondragleave="this.classList.remove('drag')" ondrop="handleCsvDrop(event)">
+        <p>Click to choose a CSV file</p>
+        <span>or drag and drop it here</span>
+        <input type="file" id="csv-file" accept=".csv,text/csv" style="display:none" onchange="handleCsvSelect(event)">
+      </div>
+      <div class="file-chosen" id="file-chosen"></div>
+      <div class="import-hint">Go to <code>File &rarr; Download &rarr; CSV</code> in Google Sheets.<br>
+        Columns: <code>Book name</code>, <code>Writer</code>, <code>Read status</code>, <code>Lend status</code>, <code>Lend date</code></div>
+      <div class="import-msg" id="import-msg"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="doImport()">Import</button>
+      </div>`;
+
+  } else {
+    // add / edit / wishlist
+    const thumbHtml = (id&&b.cover)
+      ? `<img src="${b.cover}" style="width:100%;height:100%;object-fit:cover">`
+      : 'Cover auto-fetched';
+    body=`<h2>${id?'Edit book':isWishlist?'Add to wishlist':'Add book'}</h2>
+      <div class="cover-row">
+        <div class="cover-thumb" id="cover-thumb">${thumbHtml}</div>
+        <div style="flex:1;min-width:0">
+          <div class="fg" style="margin-bottom:.5rem"><label>Book name</label>
+            <input id="m-title" value="${b.title||''}" placeholder="שם הספר" oninput="scheduleCoverFetch()"></div>
+          <div class="fg" style="margin-bottom:0"><label>Writer</label>
+            <input id="m-writer" value="${b.writer||''}" placeholder="שם הסופר" oninput="scheduleCoverFetch()"></div>
+          <div class="cover-status" id="cover-status">
+            ${id&&b.cover?'Cover loaded':'Type title &amp; writer to load cover'}</div>
+        </div>
+      </div>
+      ${!isWishlist?`<div class="fg"><label>Read status</label><select id="m-status">
+        <option value="want" ${(b.status||'want')==='want'?'selected':''}>Want to read</option>
+        <option value="reading" ${b.status==='reading'?'selected':''}>Currently reading</option>
+        <option value="read" ${b.status==='read'?'selected':''}>Read</option>
+      </select></div>
+      <div class="fg"><label>Notes</label>
+        <textarea id="m-notes" placeholder="הערות אישיות...">${b.notes||''}</textarea></div>`:''}
+      <div class="modal-actions">
+        <button class="btn" onclick="closeModal()">Cancel</button>
+        <button class="btn btn-primary" onclick="saveBook()">${id?'Save changes':'Add'}</button>
+      </div>`;
+  }
+
+  document.getElementById('modal-root').innerHTML =
+    `<div class="modal-overlay" onclick="bgClose(event)"><div class="modal">${body}</div></div>`;
+
+  if (mode==='login') setTimeout(()=>document.getElementById('pw-input')?.focus(), 50);
+  if ((mode==='add'||mode==='wishlist')||(mode==='edit'&&!b.cover)) scheduleCoverFetch();
+}
+
+function bgClose(e) { if (e.target.classList.contains('modal-overlay')) closeModal(); }
+function closeModal() { document.getElementById('modal-root').innerHTML=''; clearTimeout(coverFetchTimer); }
+
+/* ── Login ── */
+function doLogin() {
+  const pw = (document.getElementById('pw-input').value||'').trim();
+  if (!OWNER_PASSWORD) { document.getElementById('login-error').textContent='No password set in file.'; return; }
+  if (pw===OWNER_PASSWORD) { isOwner=true; sessionStorage.setItem('owner','true'); closeModal(); updateAuthUI(); }
+  else { document.getElementById('login-error').textContent='Incorrect password.'; document.getElementById('pw-input').value=''; document.getElementById('pw-input').focus(); }
+}
+
+/* ── Borrow request ── */
+function submitBorrowRequest(bookId) {
+  const book = books.find(x=>x.id===bookId)||{};
+  const name = (document.getElementById('borrow-name').value||'').trim();
+  const contact = (document.getElementById('borrow-contact').value||'').trim();
+  const msg = (document.getElementById('borrow-msg').value||'').trim();
+  const status = document.getElementById('borrow-status');
+
+  if (!name||!contact) { status.style.color='#A32D2D'; status.textContent='Please fill in your name and contact details.'; return; }
+
+  const subject = encodeURIComponent(`Book borrow request: ${book.title}`);
+  const body = encodeURIComponent(
+    `Hi,\n\nI'd like to borrow the following book:\n\nTitle: ${book.title}\nAuthor: ${book.writer}\n\nRequester details:\nName: ${name}\nContact: ${contact}${msg?'\n\nMessage: '+msg:''}\n\nSent from My Book Collection app.`
+  );
+  const mailtoLink = `mailto:${OWNER_EMAIL}?subject=${subject}&body=${body}`;
+
+  // Open mail client
+  window.location.href = mailtoLink;
+
+  status.style.color='#27500A';
+  status.textContent='Your mail client has been opened with the request. Please send the email to complete your request.';
+  setTimeout(closeModal, 3000);
+}
+
+/* ── Cover fetch in modal ── */
+function scheduleCoverFetch() {
+  clearTimeout(coverFetchTimer);
+  coverFetchTimer = setTimeout(doModalCoverFetch, 900);
+}
+async function doModalCoverFetch() {
+  const titleEl = document.getElementById('m-title');
+  const writerEl = document.getElementById('m-writer');
+  if (!titleEl||!writerEl) return;
+  const title = titleEl.value.trim(), writer = writerEl.value.trim();
+  if (!title||!writer) return;
+  const thumb = document.getElementById('cover-thumb');
+  const statusEl = document.getElementById('cover-status');
+  if (!thumb||!statusEl) return;
+  statusEl.innerHTML = '<span class="spinner"></span>Searching…';
+  const url = await fetchCover(title, writer);
+  pendingCover = url;
+  if (url) {
+    thumb.innerHTML = `<img src="${url}" style="width:100%;height:100%;object-fit:cover">`;
+    statusEl.textContent = isHebrew(title) ? 'Cover found on Simania' : 'Cover found';
+  } else {
+    thumb.textContent = 'No cover found';
+    statusEl.textContent = 'No cover found';
+  }
+}
+
+/* ── Book CRUD ── */
+async function saveBook() {
+  if (!isOwner) return;
+  const title = (document.getElementById('m-title').value||'').trim();
+  const writer = (document.getElementById('m-writer').value||'').trim();
+  if (!title||!writer) { alert('Please enter a title and writer.'); return; }
+  const isWishlist = modalMode==='wishlist'&&!editingId;
+  const statusEl = document.getElementById('m-status');
+  const notesEl = document.getElementById('m-notes');
+
+  if (editingId) {
+    const b = books.find(x=>x.id===editingId);
+    b.title=title; b.writer=writer;
+    if (statusEl) b.status=statusEl.value;
+    if (notesEl) b.notes=notesEl.value;
+    if (pendingCover!==null) b.cover=pendingCover;
+    else if (!b.cover) b.cover = await fetchCover(title,writer);
+    await persistSave(b);
+  } else {
+    const cover = pendingCover!==null ? pendingCover : await fetchCover(title,writer);
+    const book = { id:Date.now(), title, writer,
+      status:statusEl?statusEl.value:'want', notes:notesEl?notesEl.value:'',
+      cover, lent:false, lentTo:'', lentDate:'', wishlist:isWishlist };
+    books.push(book);
+    await persistSave(book);
+  }
+  closeModal(); render();
+}
+
+function editBook(id) { if (isOwner) openModal('edit',id); }
+async function deleteBook(id) {
+  if (!isOwner) return;
+  if (!confirm('Remove this book?')) return;
+  books = books.filter(b=>b.id!==id);
+  await persistDelete(id); render();
+}
+async function lendBook(id) {
+  if (!isOwner) return;
+  const name = prompt('Lend to whom?'); if (!name) return;
+  const b = books.find(x=>x.id===id);
+  b.lent=true; b.lentTo=name; b.lentDate=new Date().toISOString().slice(0,10);
+  await persistSave(b); render();
+}
+async function returnBook(id) {
+  if (!isOwner) return;
+  const b = books.find(x=>x.id===id);
+  b.lent=false; b.lentTo=''; b.lentDate='';
+  await persistSave(b); render();
+}
+
+/* ── CSV Import ── */
+function handleCsvSelect(e) { const f=e.target.files[0]; if(!f) return; readCsvFile(f); }
+function handleCsvDrop(e) { e.preventDefault(); document.getElementById('drop-zone').classList.remove('drag'); const f=e.dataTransfer.files[0]; if(f) readCsvFile(f); }
+function readCsvFile(file) {
+  const reader=new FileReader();
+  reader.onload=function(e){
+    csvFileContent=e.target.result;
+    const el=document.getElementById('file-chosen'); el.style.display='block';
+    el.textContent='File loaded: '+file.name+' ('+Math.round(file.size/1024*10)/10+' KB)';
+    document.getElementById('import-msg').textContent='';
+  }; reader.readAsText(file);
+}
+function parseCSVLine(line){const res=[];let cur='',inQ=false;for(const c of line){if(c==='"')inQ=!inQ;else if(c===','&&!inQ){res.push(cur.trim());cur='';}else cur+=c;}res.push(cur.trim());return res;}
+function parseStatus(raw){if(!raw)return 'want';const r=raw.toLowerCase().trim();if(r==='v'||r==='read'||r==='done'||r==='\u2713')return 'read';if(r==='reading'||r==='in progress')return 'reading';return 'want';}
+function findHeaderRow(rows){for(let i=0;i<rows.length;i++){if(rows[i].some(c=>c.toLowerCase().includes('book')))return i;}return -1;}
+function colIdx(h,kws){for(let i=0;i<h.length;i++){if(kws.some(k=>h[i].includes(k)))return i;}return -1;}
+
+async function doImport() {
+  if (!isOwner) return;
+  const msg=document.getElementById('import-msg');
+  if (!csvFileContent){msg.style.color='#A32D2D';msg.textContent='Please select a CSV file first.';return;}
+  const rows=csvFileContent.split(/\r?\n/).map(parseCSVLine);
+  const hIdx=findHeaderRow(rows);
+  if(hIdx===-1){msg.style.color='#A32D2D';msg.textContent='Could not find header row.';return;}
+  const headers=rows[hIdx].map(c=>c.toLowerCase());
+  const cT=colIdx(headers,['book name','book','title']);
+  const cW=colIdx(headers,['writer','author']);
+  const cS=colIdx(headers,['read status','status','read']);
+  const cL=colIdx(headers,['lend status','lent to','lend']);
+  const cD=colIdx(headers,['lend date','date']);
+  if(cT===-1||cW===-1){msg.style.color='#A32D2D';msg.textContent='Could not find "Book name" or "Writer" columns.';return;}
+  msg.style.color='var(--text-secondary)';
+  msg.innerHTML='<span class="spinner"></span>Importing…';
+  let added=0,skipped=0;
+  for(let i=hIdx+1;i<rows.length;i++){
+    const r=rows[i];
+    const title=(cT>=0?r[cT]:'').replace(/^"|"$/g,'').trim();
+    const writer=(cW>=0?r[cW]:'').replace(/^"|"$/g,'').trim();
+    if(!title||!writer){skipped++;continue;}
+    if(books.some(b=>b.title.toLowerCase()===title.toLowerCase()&&b.writer.toLowerCase()===writer.toLowerCase())){skipped++;continue;}
+    const status=parseStatus(cS>=0?r[cS]:'');
+    const lentTo=(cL>=0?r[cL]:'').trim();
+    const lentDate=(cD>=0?r[cD]:'').trim();
+    const book={id:Date.now()+i,title,writer,status,notes:'',cover:null,lent:!!lentTo,lentTo,lentDate,wishlist:false};
+    books.push(book);
+    if(db) await saveToSupabase(book); else saveToLocalStorage();
+    added++;
+    if(added%10===0) msg.innerHTML=`<span class="spinner"></span>Imported ${added} books…`;
+  }
+  if(!db) saveToLocalStorage();
+  msg.style.color='#27500A';
+  msg.innerHTML=`Done! ${added} book${added!==1?'s':''} imported.${skipped?' ('+skipped+' skipped)':''}`;
+  setTimeout(()=>{closeModal();render();},1500);
+}
+
+/* ── Boot ── */
+checkOwnerSession();
+initSupabase();
+</script>
+</body>
+</html>
