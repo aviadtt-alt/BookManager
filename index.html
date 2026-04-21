@@ -383,10 +383,20 @@ function statusBadge(s) {
 }
 
 /* ── Book card ── */
+function defaultCoverPlaceholderHtml() {
+  return `<div class="book-cover-ph"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2" width="18" height="20" rx="2"/><path d="M7 6h10M7 10h10M7 14h6"/></svg><span>No cover</span></div>`;
+}
+
+function showCoverPlaceholder(imgEl) {
+  if (!imgEl || !imgEl.parentElement) return;
+  imgEl.onerror = null;
+  imgEl.parentElement.innerHTML = defaultCoverPlaceholderHtml();
+}
+
 function coverHtml(b) {
-  const ph = `<div class="book-cover-ph"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2" width="18" height="20" rx="2"/><path d="M7 6h10M7 10h10M7 14h6"/></svg><span>No cover</span></div>`;
+  const ph = defaultCoverPlaceholderHtml();
   if (!b.cover) return ph;
-  return `<img src="${b.cover}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.parentElement.innerHTML='${ph.replace(/'/g,'\\'+'&#39;')}'" >`;
+  return `<img src="${b.cover}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block" onerror="showCoverPlaceholder(this)">`;
 }
 
 function bookCard(b) {
