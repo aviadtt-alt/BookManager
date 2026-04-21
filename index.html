@@ -725,7 +725,7 @@ async function doImport() {
   if(cT===-1||cW===-1){msg.style.color='#A32D2D';msg.textContent='Could not find "Book name" or "Writer" columns.';return;}
   msg.style.color='var(--text-secondary)';
   msg.innerHTML='<span class="spinner"></span>Importing…';
-  let added=0,skipped=0;
+  let added=0,skipped=0,coversFound=0;
   for(let i=hIdx+1;i<rows.length;i++){
     const r=rows[i];
     const title=(cT>=0?r[cT]:'').replace(/^"|"$/g,'').trim();
@@ -735,15 +735,17 @@ async function doImport() {
     const status=parseStatus(cS>=0?r[cS]:'');
     const lentTo=(cL>=0?r[cL]:'').trim();
     const lentDate=(cD>=0?r[cD]:'').trim();
-    const book={id:Date.now()+i,title,writer,status,notes:'',cover:null,lent:!!lentTo,lentTo,lentDate,wishlist:false};
+    const cover = await fetchCover(title, writer);
+    if (cover) coversFound++;
+    const book={id:Date.now()+i,title,writer,status,notes:'',cover,lent:!!lentTo,lentTo,lentDate,wishlist:false};
     books.push(book);
     if(db) await saveToSupabase(book); else saveToLocalStorage();
     added++;
-    if(added%10===0) msg.innerHTML=`<span class="spinner"></span>Imported ${added} books…`;
+    if(added%5===0) msg.innerHTML=`<span class="spinner"></span>Imported ${added} books, found ${coversFound} covers…`;
   }
   if(!db) saveToLocalStorage();
   msg.style.color='#27500A';
-  msg.innerHTML=`Done! ${added} book${added!==1?'s':''} imported.${skipped?' ('+skipped+' skipped)':''}`;
+  msg.innerHTML=`Done! ${added} book${added!==1?'s':''} imported, ${coversFound} cover${coversFound!==1?'s':''} found.${skipped?' ('+skipped+' skipped)':''}`;
   setTimeout(()=>{closeModal();render();},1500);
 }
 
