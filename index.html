@@ -166,6 +166,7 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
   <h1>Aviad's book collection</h1>
   <div class="topbar-right">
     <button class="btn" onclick="exportCsv()">Export CSV</button>
+    <button class="btn btn-borrow" onclick="openModal('recommend')">💡 Recommend a book</button>
     <button class="btn" onclick="toggleTheme()" id="theme-toggle" title="Toggle Dark Mode">
       <span id="theme-icon">🌓</span>
     </button>
@@ -185,6 +186,7 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
   <button class="tab active" onclick="switchTab('collection',this)">Collection</button>
   <button class="tab" onclick="switchTab('lent',this)">Lent out</button>
   <button class="tab" onclick="switchTab('wishlist',this)">Wishlist</button>
+  <button class="tab" onclick="switchTab('recommendations',this)">Recommendations</button>
   <button class="tab" onclick="switchTab('stats',this)">Statistics</button>
 </div>
 
@@ -207,6 +209,7 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
 </div>
 <div id="tab-lent" style="display:none"><div id="lent-list"></div></div>
 <div id="tab-wishlist" style="display:none"><div id="wishlist-list"></div></div>
+<div id="tab-recommendations" style="display:none"><div id="recommendations-list"></div></div>
 <div id="tab-stats" style="display:none"><div id="stats-content"></div></div>
 <div id="modal-root"></div>
 <form name="borrow-request" method="POST" action="/" data-netlify="true" netlify-honeypot="bot-field" hidden>
@@ -512,6 +515,8 @@ function coverHtml(b) {
 
 function bookCard(b) {
   const lentInfo = b.lent ? `<div class="lent-info">Lent to <strong>${b.lentTo}</strong>${b.lentDate?' &middot; '+b.lentDate:''}</div>` : '';
+  // Show recommender name if it exists
+  const recInfo = b.recommendedBy ? `<div class="lent-info">Recommended by: <strong>${b.recommendedBy}</strong></div>` : '';
   const borrowBtn = !b.wishlist
     ? `<button class="btn btn-borrow" onclick="openModal('borrow',${b.id})">
         ${b.lent ? 'Join Waitlist' : 'Request borrow'}
@@ -532,9 +537,11 @@ function bookCard(b) {
       <div class="book-meta">
         ${b.wishlist?'<span class="badge badge-wishlist">Wishlist</span>':statusBadge(b.status)}
         ${b.lent?'<span class="badge badge-lent">Lent out</span>':''}
+        ${b.recommendedBy ? '<span class="badge badge-reading">Recommendation</span>' : statusBadge(b.status)}
       </div>
       ${b.notes?`<div class="book-notes">"${b.notes}"</div>`:''}
       ${lentInfo}
+      ${recInfo}
       ${hasActions?`<div class="book-actions">${borrowBtn}${ownerBtns}</div>`:''}
     </div>
   </div>`;
@@ -632,6 +639,7 @@ function render() {
   else if (currentTab==='lent') renderLent();
   else if (currentTab==='wishlist') renderWishlist();
   else if (currentTab==='stats') renderStats();
+  else if (currentTab === 'recommendations') renderRecommendations();
 }
 function switchTab(tab,el) {
   currentTab=tab;
@@ -697,7 +705,16 @@ function openModal(mode,id) {
         <button class="btn" onclick="closeModal()">Cancel</button>
         <button class="btn btn-primary" onclick="doImport()">Import</button>
       </div>`;
-
+  } else if (mode === 'recommend') {
+  body = `<h2>Recommend a book</h2>
+    <div class="fg"><label>Book Title</label><input id="rec-title" placeholder="Title"></div>
+    <div class="fg"><label>Author</label><input id="rec-writer" placeholder="Author"></div>
+    <div class="fg"><label>Your Name</label><input id="rec-name" placeholder="Who are you?"></div>
+    <div id="rec-status" style="font-size:13px;min-height:18px"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitRecommendation()">Send Recommendation</button>
+    </div>`;
   } else {
     // add / edit / wishlist
     const thumbHtml = (id&&b.cover)
@@ -744,6 +761,32 @@ function openModal(mode,id) {
 
   if (mode==='login') setTimeout(()=>document.getElementById('pw-input')?.focus(), 50);
   if ((mode==='add'||mode==='wishlist')||(mode==='edit'&&!b.cover)) scheduleCoverFetch();
+}
+
+async function submitRecommendation() {
+  const title = document.getElementById('rec-title').value.trim();
+  const writer = document.getElementById('rec-writer').value.trim();
+  const name = document.getElementById('rec-name').value.trim();
+  
+  if(!title || !writer || !name) return alert("Please fill all fields");
+  
+  const cover = await fetchCover(title, writer);
+  const book = { 
+    id: Date.now(), title, writer, cover, 
+    recommendedBy: name, wishlist: false, status: 'want' 
+  };
+  
+  books.push(book);
+  await persistSave(book);
+  closeModal();
+  render();
+}
+
+function renderRecommendations() {
+  const recs = books.filter(b => b.recommendedBy);
+  document.getElementById('recommendations-list').innerHTML = recs.length
+    ? `<div class="book-grid">${recs.map(bookCard).join('')}</div>`
+    : '<div class="empty">No recommendations yet. Be the first!</div>';
 }
 
 function bgClose(e) { if (e.target.classList.contains('modal-overlay')) closeModal(); }
