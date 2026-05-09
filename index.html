@@ -117,6 +117,7 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
 <div class="topbar">
   <h1>Aviad's book collection</h1>
   <div class="topbar-right">
+    <button class="btn" onclick="exportCsv()">Export CSV</button>
     <div id="owner-actions" style="display:none;gap:8px;flex-wrap:wrap">
       <button class="btn" onclick="openModal('import')">Import CSV</button>
       <button class="btn" onclick="openModal('wishlist')">+ Wishlist</button>
@@ -876,8 +877,32 @@ function readCsvFile(file) {
 }
 function parseCSVLine(line){const res=[];let cur='',inQ=false;for(const c of line){if(c==='"')inQ=!inQ;else if(c===','&&!inQ){res.push(cur.trim());cur='';}else cur+=c;}res.push(cur.trim());return res;}
 function parseStatus(raw){if(!raw)return 'want';const r=raw.toLowerCase().trim();if(r==='v'||r==='read'||r==='done'||r==='\u2713')return 'read';if(r==='reading'||r==='in progress')return 'reading';return 'want';}
+function formatStatusForCsv(status){if(status==='read')return 'Read';if(status==='reading')return 'Reading';return 'Want to read';}
+function csvCell(value){const s=String(value??'');return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}
 function findHeaderRow(rows){for(let i=0;i<rows.length;i++){if(rows[i].some(c=>c.toLowerCase().includes('book')))return i;}return -1;}
 function colIdx(h,kws){for(let i=0;i<h.length;i++){if(kws.some(k=>h[i].includes(k)))return i;}return -1;}
+function exportCsv() {
+  const header=['Book name','Writer','Read status','Lend status','Lend date'];
+  const rows=books
+    .filter(b=>!b.wishlist)
+    .map(b=>[
+      b.title||'',
+      b.writer||'',
+      formatStatusForCsv(b.status),
+      b.lentTo||'',
+      b.lentDate||''
+    ]);
+  const csv=[header,...rows].map(row=>row.map(csvCell).join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`book-collection-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 async function doImport() {
   if (!isOwner) return;
