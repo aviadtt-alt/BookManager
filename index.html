@@ -318,6 +318,19 @@ function buildSimaniaCoverUrl(itemId) {
   return `https://cdn.simania.co.il/bookimages/covers${prefix}/${itemId}.jpg`;
 }
 
+function extractSimaniaBookId(value) {
+  const text = (value || '').trim();
+  if (!text) return null;
+  if (/^\d+$/.test(text)) return parseInt(text, 10);
+  const match = text.match(/item_id=(\d+)/i) || text.match(/\/book\/(\d+)/i);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+function simaniaSearchUrl(title, writer) {
+  const query = `${(title || '').trim()} ${(writer || '').trim()}`.trim();
+  return `https://simania.co.il/searchBooks.php?query=${query.replace(/\s+/g, '+')}`;
+}
+
 function extractSimaniaItemId(html, finalUrl = '') {
   const redirectMatch = finalUrl.match(/bookdetails\.php\?item_id=(\d+)/i);
   if (redirectMatch) return parseInt(redirectMatch[1], 10);
@@ -584,6 +597,17 @@ function openModal(mode,id) {
             ${id&&b.cover?'Cover loaded':'Type title &amp; writer to load cover'}</div>
         </div>
       </div>
+      <div class="fg" style="margin-bottom:.55rem">
+        <label>Simania URL or book ID (optional)</label>
+        <input id="m-simania" value="" placeholder="Paste Simania book URL or item_id"
+          oninput="applyManualSimaniaCover(this.value)">
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:-.2rem 0 .85rem">
+        <button class="btn btn-ghost" type="button" onclick="openSimaniaAssist()">Search Simania</button>
+        <button class="btn btn-ghost" type="button" onclick="applyManualSimaniaCover(document.getElementById('m-simania').value)">
+          Use Simania link
+        </button>
+      </div>
       ${!isWishlist?`<div class="fg"><label>Read status</label><select id="m-status">
         <option value="want" ${(b.status||'want')==='want'?'selected':''}>Want to read</option>
         <option value="reading" ${b.status==='reading'?'selected':''}>Currently reading</option>
@@ -717,6 +741,45 @@ async function doModalCoverFetch() {
 }
 
 /* ── Book CRUD ── */
+function openSimaniaAssist() {
+  const title = (document.getElementById('m-title')?.value || '').trim();
+  const writer = (document.getElementById('m-writer')?.value || '').trim();
+  const statusEl = document.getElementById('cover-status');
+  if (!title || !writer) {
+    if (statusEl) {
+      statusEl.style.color = '#A32D2D';
+      statusEl.textContent = 'Enter title and writer before opening Simania.';
+    }
+    return;
+  }
+  window.open(simaniaSearchUrl(title, writer), '_blank', 'noopener,noreferrer');
+}
+
+function applyManualSimaniaCover(rawValue) {
+  const statusEl = document.getElementById('cover-status');
+  const thumb = document.getElementById('cover-thumb');
+  if (!statusEl || !thumb) return;
+
+  const itemId = extractSimaniaBookId(rawValue);
+  if (!rawValue || !rawValue.trim()) {
+    statusEl.style.color = 'var(--text-secondary)';
+    statusEl.textContent = pendingCover ? 'Manual Simania cover kept.' : 'Type title & writer to load cover';
+    return;
+  }
+
+  if (!itemId) {
+    statusEl.style.color = '#A32D2D';
+    statusEl.textContent = 'Paste a Simania book URL or numeric item_id.';
+    return;
+  }
+
+  const coverUrl = buildSimaniaCoverUrl(itemId);
+  pendingCover = coverUrl;
+  thumb.innerHTML = `<img src="${coverUrl}" style="width:100%;height:100%;object-fit:cover">`;
+  statusEl.style.color = 'var(--text-secondary)';
+  statusEl.textContent = `Using Simania cover from item_id ${itemId}.`;
+}
+
 async function saveBook() {
   if (!isOwner) return;
   const title = (document.getElementById('m-title').value||'').trim();
