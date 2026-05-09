@@ -145,6 +145,11 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
       <option value="reading">Currently reading</option>
       <option value="want">Want to read</option>
     </select>
+    <select id="sortBy" onchange="render()">
+      <option value="author" selected>Sort: Author</option>
+      <option value="title">Sort: Title</option>
+      <option value="status">Sort: Status</option>
+    </select>
   </div>
   <div id="book-list"></div>
 </div>
@@ -451,17 +456,45 @@ function bookCard(b) {
 }
 
 /* ── Render ── */
+function compareBookText(a, b) {
+  return (a || '').localeCompare(b || '', 'he', { sensitivity: 'base' });
+}
+
+function statusSortRank(status) {
+  return { read: 0, reading: 1, want: 2 }[status] ?? 99;
+}
+
+function sortBooksForCollection(list, sortBy) {
+  const items = [...list];
+  items.sort((a, b) => {
+    if (sortBy === 'title') {
+      return compareBookText(a.title, b.title) || compareBookText(a.writer, b.writer);
+    }
+    if (sortBy === 'status') {
+      return (
+        statusSortRank(a.status) - statusSortRank(b.status) ||
+        compareBookText(a.writer, b.writer) ||
+        compareBookText(a.title, b.title)
+      );
+    }
+    return compareBookText(a.writer, b.writer) || compareBookText(a.title, b.title);
+  });
+  return items;
+}
+
 function renderCollection() {
   const q = document.getElementById('search').value.toLowerCase();
   const fs = document.getElementById('filterStatus').value;
+  const sortBy = document.getElementById('sortBy')?.value || 'author';
   const filtered = books.filter(b => {
     if (b.wishlist) return false;
     if (q && !b.title.toLowerCase().includes(q) && !b.writer.toLowerCase().includes(q)) return false;
     if (fs && b.status !== fs) return false;
     return true;
   });
+  const sorted = sortBooksForCollection(filtered, sortBy);
   document.getElementById('book-list').innerHTML = filtered.length
-    ? `<div class="book-grid">${filtered.map(bookCard).join('')}</div>`
+    ? `<div class="book-grid">${sorted.map(bookCard).join('')}</div>`
     : '<div class="empty">No books found.</div>';
 }
 function renderLent() {
