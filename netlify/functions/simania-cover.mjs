@@ -40,11 +40,14 @@ export default async (req) => {
       redirect: 'follow'
     });
     if (!searchResponse.ok) {
+      const responseText = await searchResponse.text().catch(() => '');
       return Response.json(
         {
           ok: false,
           error: `Simania API HTTP ${searchResponse.status}`,
-          apiUrl
+          apiUrl,
+          debugBodyPreview: responseText.slice(0, 1000),
+          debugHeadersSent: browserHeaders()
         },
         { status: 502 }
       );
