@@ -59,7 +59,11 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
 .tab{padding:8px 16px;font-size:14px;cursor:pointer;color:var(--text-secondary);border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none}
 .tab.active{color:var(--text-primary);border-bottom-color:var(--text-primary);font-weight:500}
 /* Book grid — cover layout */
-.book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px; /* Slightly reduced gap to save space on mobile */
+}
 .book-card{background:var(--bg-primary);border:.5px solid var(--border-faint);border-radius:var(--radius-lg);overflow:hidden;display:flex;flex-direction:column}
 .book-card.lent{border-top:3px solid #EF9F27}
 .book-cover-wrap{width:100%;aspect-ratio:2/3;background:var(--bg-secondary);flex-shrink:0;overflow:hidden;position:relative}
@@ -129,7 +133,30 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
 .setup-banner code{font-family:var(--mono);font-size:11px;background:rgba(255,255,255,.6);padding:1px 5px;border-radius:4px}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border-mid);border-top-color:var(--text-primary);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
-@media(max-width:500px){.stats-grid{grid-template-columns:repeat(2,1fr)}.stat-card:last-child{grid-column:span 2}}
+@media (max-width: 500px) {
+  .app {
+    padding: 1rem 0.5rem; /* Reduce side padding so books have more room */
+  }
+
+  .book-grid {
+    /* Force 2 columns regardless of minmax setting */
+    grid-template-columns: repeat(2, 1fr); 
+    gap: 8px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .stat-card:last-child {
+    grid-column: span 2;
+  }
+
+  /* Optional: slightly shrink font sizes for titles to keep cards compact */
+  .book-title {
+    font-size: 13px;
+  }
+}
 </style>
 </head>
 <body>
