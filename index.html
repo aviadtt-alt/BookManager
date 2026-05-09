@@ -467,9 +467,11 @@ function coverHtml(b) {
 
 function bookCard(b) {
   const lentInfo = b.lent ? `<div class="lent-info">Lent to <strong>${b.lentTo}</strong>${b.lentDate?' &middot; '+b.lentDate:''}</div>` : '';
-  // Borrow button: show only for non-lent books in guest view, or owner can still see it
-  const borrowBtn = !b.lent && !b.wishlist
-    ? `<button class="btn btn-borrow" onclick="openModal('borrow',${b.id})">Request borrow</button>` : '';
+  const borrowBtn = !b.wishlist
+    ? `<button class="btn btn-borrow" onclick="openModal('borrow',${b.id})">
+        ${b.lent ? 'Join Waitlist' : 'Request borrow'}
+       </button>` 
+    : '';
   const ownerBtns = isOwner ? `
     <button class="btn btn-sm" onclick="editBook(${b.id})">Edit</button>
     ${b.lent
