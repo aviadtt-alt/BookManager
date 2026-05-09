@@ -63,7 +63,13 @@ async function mcpRequest(body) {
 
   if (!response.ok || json?.error) {
     const message = json?.error?.message || `MCP HTTP ${response.status}`;
-    throw new Error(message);
+    throw new Error(
+      JSON.stringify({
+        message,
+        status: response.status,
+        bodyPreview: text.slice(0, 1000)
+      })
+    );
   }
 
   return json;
