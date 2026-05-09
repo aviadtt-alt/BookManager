@@ -64,6 +64,16 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
 .book-card.lent{border-top:3px solid #EF9F27}
 .book-cover-wrap{width:100%;aspect-ratio:2/3;background:var(--bg-secondary);flex-shrink:0;overflow:hidden;position:relative}
 .book-cover-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.book-cover-wrap a {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.book-cover-wrap a:hover {
+  opacity: 0.9;
+  transition: opacity 0.2s;
+}
 .book-cover-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px}
 .book-cover-ph svg{opacity:.2}
 .book-cover-ph span{font-size:11px;color:var(--text-tertiary);text-align:center;padding:0 4px}
@@ -461,8 +471,16 @@ function showCoverPlaceholder(imgEl) {
 
 function coverHtml(b) {
   const ph = defaultCoverPlaceholderHtml();
-  if (!b.cover) return ph;
-  return `<img src="${b.cover}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block" onerror="showCoverPlaceholder(this)">`;
+  const searchUrl = simaniaSearchUrl(b.title, b.writer);
+  
+  // Wrap the content in an anchor tag targeting Simania
+  const content = b.cover 
+    ? `<img src="${b.cover}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block" onerror="showCoverPlaceholder(this)">`
+    : ph;
+
+  return `<a href="${searchUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; display:block; height:100%;">
+            ${content}
+          </a>`;
 }
 
 function bookCard(b) {
