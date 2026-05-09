@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="referrer" content="no-referrer">
-<title>My Book Collection</title>
+<link rel="icon" type="image/x-icon" href="/favicon.ico">
+<title>Aviad's Book Collection</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -114,8 +115,9 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
 <div class="app" id="app">
 
 <div class="topbar">
-  <h1>My book collection</h1>
+  <h1>Aviad's book collection</h1>
   <div class="topbar-right">
+    <button class="btn" onclick="exportCsv()">Export CSV</button>
     <div id="owner-actions" style="display:none;gap:8px;flex-wrap:wrap">
       <button class="btn" onclick="openModal('import')">Import CSV</button>
       <button class="btn" onclick="openModal('wishlist')">+ Wishlist</button>
@@ -143,6 +145,11 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
       <option value="read">Read</option>
       <option value="reading">Currently reading</option>
       <option value="want">Want to read</option>
+    </select>
+    <select id="sortBy" onchange="render()">
+      <option value="author" selected>Sort: Author</option>
+      <option value="title">Sort: Title</option>
+      <option value="status">Sort: Status</option>
     </select>
   </div>
   <div id="book-list"></div>
@@ -317,6 +324,19 @@ function buildSimaniaCoverUrl(itemId) {
   return `https://cdn.simania.co.il/bookimages/covers${prefix}/${itemId}.jpg`;
 }
 
+function extractSimaniaBookId(value) {
+  const text = (value || '').trim();
+  if (!text) return null;
+  if (/^\d+$/.test(text)) return parseInt(text, 10);
+  const match = text.match(/item_id=(\d+)/i) || text.match(/\/book\/(\d+)/i);
+  return match ? parseInt(match[1], 10) : null;
+}
+
+function simaniaSearchUrl(title, writer) {
+  const query = `${(title || '').trim()} ${(writer || '').trim()}`.trim();
+  return `https://simania.co.il/searchBooks.php?query=${query.replace(/\s+/g, '+')}`;
+}
+
 function extractSimaniaItemId(html, finalUrl = '') {
   const redirectMatch = finalUrl.match(/bookdetails\.php\?item_id=(\d+)/i);
   if (redirectMatch) return parseInt(redirectMatch[1], 10);
@@ -437,17 +457,45 @@ function bookCard(b) {
 }
 
 /* ── Render ── */
+function compareBookText(a, b) {
+  return (a || '').localeCompare(b || '', 'he', { sensitivity: 'base' });
+}
+
+function statusSortRank(status) {
+  return { read: 0, reading: 1, want: 2 }[status] ?? 99;
+}
+
+function sortBooksForCollection(list, sortBy) {
+  const items = [...list];
+  items.sort((a, b) => {
+    if (sortBy === 'title') {
+      return compareBookText(a.title, b.title) || compareBookText(a.writer, b.writer);
+    }
+    if (sortBy === 'status') {
+      return (
+        statusSortRank(a.status) - statusSortRank(b.status) ||
+        compareBookText(a.writer, b.writer) ||
+        compareBookText(a.title, b.title)
+      );
+    }
+    return compareBookText(a.writer, b.writer) || compareBookText(a.title, b.title);
+  });
+  return items;
+}
+
 function renderCollection() {
   const q = document.getElementById('search').value.toLowerCase();
   const fs = document.getElementById('filterStatus').value;
+  const sortBy = document.getElementById('sortBy')?.value || 'author';
   const filtered = books.filter(b => {
     if (b.wishlist) return false;
     if (q && !b.title.toLowerCase().includes(q) && !b.writer.toLowerCase().includes(q)) return false;
     if (fs && b.status !== fs) return false;
     return true;
   });
+  const sorted = sortBooksForCollection(filtered, sortBy);
   document.getElementById('book-list').innerHTML = filtered.length
-    ? `<div class="book-grid">${filtered.map(bookCard).join('')}</div>`
+    ? `<div class="book-grid">${sorted.map(bookCard).join('')}</div>`
     : '<div class="empty">No books found.</div>';
 }
 function renderLent() {
@@ -583,6 +631,17 @@ function openModal(mode,id) {
             ${id&&b.cover?'Cover loaded':'Type title &amp; writer to load cover'}</div>
         </div>
       </div>
+      <div class="fg" style="margin-bottom:.55rem">
+        <label>Simania URL or book ID (optional)</label>
+        <input id="m-simania" value="" placeholder="Paste Simania book URL or item_id"
+          oninput="applyManualSimaniaCover(this.value)">
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:-.2rem 0 .85rem">
+        <button class="btn btn-ghost" type="button" onclick="openSimaniaAssist()">Search Simania</button>
+        <button class="btn btn-ghost" type="button" onclick="applyManualSimaniaCover(document.getElementById('m-simania').value)">
+          Use Simania link
+        </button>
+      </div>
       ${!isWishlist?`<div class="fg"><label>Read status</label><select id="m-status">
         <option value="want" ${(b.status||'want')==='want'?'selected':''}>Want to read</option>
         <option value="reading" ${b.status==='reading'?'selected':''}>Currently reading</option>
@@ -716,6 +775,45 @@ async function doModalCoverFetch() {
 }
 
 /* ── Book CRUD ── */
+function openSimaniaAssist() {
+  const title = (document.getElementById('m-title')?.value || '').trim();
+  const writer = (document.getElementById('m-writer')?.value || '').trim();
+  const statusEl = document.getElementById('cover-status');
+  if (!title || !writer) {
+    if (statusEl) {
+      statusEl.style.color = '#A32D2D';
+      statusEl.textContent = 'Enter title and writer before opening Simania.';
+    }
+    return;
+  }
+  window.open(simaniaSearchUrl(title, writer), '_blank', 'noopener,noreferrer');
+}
+
+function applyManualSimaniaCover(rawValue) {
+  const statusEl = document.getElementById('cover-status');
+  const thumb = document.getElementById('cover-thumb');
+  if (!statusEl || !thumb) return;
+
+  const itemId = extractSimaniaBookId(rawValue);
+  if (!rawValue || !rawValue.trim()) {
+    statusEl.style.color = 'var(--text-secondary)';
+    statusEl.textContent = pendingCover ? 'Manual Simania cover kept.' : 'Type title & writer to load cover';
+    return;
+  }
+
+  if (!itemId) {
+    statusEl.style.color = '#A32D2D';
+    statusEl.textContent = 'Paste a Simania book URL or numeric item_id.';
+    return;
+  }
+
+  const coverUrl = buildSimaniaCoverUrl(itemId);
+  pendingCover = coverUrl;
+  thumb.innerHTML = `<img src="${coverUrl}" style="width:100%;height:100%;object-fit:cover">`;
+  statusEl.style.color = 'var(--text-secondary)';
+  statusEl.textContent = `Using Simania cover from item_id ${itemId}.`;
+}
+
 async function saveBook() {
   if (!isOwner) return;
   const title = (document.getElementById('m-title').value||'').trim();
@@ -779,8 +877,32 @@ function readCsvFile(file) {
 }
 function parseCSVLine(line){const res=[];let cur='',inQ=false;for(const c of line){if(c==='"')inQ=!inQ;else if(c===','&&!inQ){res.push(cur.trim());cur='';}else cur+=c;}res.push(cur.trim());return res;}
 function parseStatus(raw){if(!raw)return 'want';const r=raw.toLowerCase().trim();if(r==='v'||r==='read'||r==='done'||r==='\u2713')return 'read';if(r==='reading'||r==='in progress')return 'reading';return 'want';}
+function formatStatusForCsv(status){if(status==='read')return 'Read';if(status==='reading')return 'Reading';return 'Want to read';}
+function csvCell(value){const s=String(value??'');return /[",\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}
 function findHeaderRow(rows){for(let i=0;i<rows.length;i++){if(rows[i].some(c=>c.toLowerCase().includes('book')))return i;}return -1;}
 function colIdx(h,kws){for(let i=0;i<h.length;i++){if(kws.some(k=>h[i].includes(k)))return i;}return -1;}
+function exportCsv() {
+  const header=['Book name','Writer','Read status','Lend status','Lend date'];
+  const rows=books
+    .filter(b=>!b.wishlist)
+    .map(b=>[
+      b.title||'',
+      b.writer||'',
+      formatStatusForCsv(b.status),
+      b.lentTo||'',
+      b.lentDate||''
+    ]);
+  const csv=[header,...rows].map(row=>row.map(csvCell).join(',')).join('\r\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download=`book-collection-${new Date().toISOString().slice(0,10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
 
 async function doImport() {
   if (!isOwner) return;
