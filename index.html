@@ -517,7 +517,7 @@ function bookCard(b) {
   const lentInfo = b.lent ? `<div class="lent-info">Lent to <strong>${b.lentTo}</strong>${b.lentDate?' &middot; '+b.lentDate:''}</div>` : '';
   // Show recommender name if it exists
   const recInfo = b.recommendedBy ? `<div class="lent-info">Recommended by: <strong>${b.recommendedBy}</strong></div>` : '';
-  const borrowBtn = !b.wishlist
+  const borrowBtn = (!b.wishlist && b.status !== 'recommendation')
     ? `<button class="btn btn-borrow" onclick="openModal('borrow',${b.id})">
         ${b.lent ? 'Join Waitlist' : 'Request borrow'}
        </button>` 
