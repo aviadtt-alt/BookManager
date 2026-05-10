@@ -623,7 +623,7 @@ function renderStats() {
     <div>${bars.map(b=>`<div class="chart-row"><div class="chart-row-label">${b.label}</div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${Math.round(b.count/max*100)}%;background:${b.color}"></div></div><div class="chart-val">${b.count}</div></div>`).join('')}</div>`;
 }
 function renderTopStats() {
-  const col = books.filter(b=>!b.wishlist);
+  const col = books.filter(b=>!b.wishlist && b.status !== 'recommendation');
   const read = col.filter(b=>b.status==='read').length;
   const pct = col.length?Math.round(read/col.length*100):0;
   document.getElementById('stats-grid').innerHTML = `
