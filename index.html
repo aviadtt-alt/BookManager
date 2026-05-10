@@ -166,7 +166,7 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
   <h1>Aviad's book collection</h1>
   <div class="topbar-right">
     <button class="btn" onclick="exportCsv()">Export CSV</button>
-    <button class="btn btn-borrow" onclick="openModal('recommend')">💡 Recommend a book</button>
+    <button class="btn" onclick="openModal('recommend')">💡 Recommend a book</button>
     <button class="btn" onclick="toggleTheme()" id="theme-toggle" title="Toggle Dark Mode">
       <span id="theme-icon">🌓</span>
     </button>
@@ -294,11 +294,11 @@ async function deleteFromSupabase(id) {
 }
 function bookToDb(b) {
   return { id:b.id, title:b.title, writer:b.writer, status:b.status, notes:b.notes,
-    cover:b.cover||null, lent:b.lent, lent_to:b.lentTo, lent_date:b.lentDate, wishlist:b.wishlist };
+    cover:b.cover||null, lent:b.lent, lent_to:b.lentTo, lent_date:b.lentDate, wishlist:b.wishlist, recommended_by: b.recommendedBy };
 }
 function dbToBook(r) {
   return { id:r.id, title:r.title, writer:r.writer, status:r.status, notes:r.notes||'',
-    cover:r.cover||null, lent:r.lent||false, lentTo:r.lent_to||'', lentDate:r.lent_date||'', wishlist:r.wishlist||false };
+    cover:r.cover||null, lent:r.lent||false, lentTo:r.lent_to||'', lentDate:r.lent_date||'', wishlist:r.wishlist||false, recommendedBy: r.recommended_by || '' };
 }
 const LS_KEY = 'bookshelf_v6';
 function loadFromLocalStorage() {
@@ -579,7 +579,7 @@ function renderCollection() {
   const fs = document.getElementById('filterStatus').value;
   const sortBy = document.getElementById('sortBy')?.value || 'author';
   const filtered = books.filter(b => {
-    if (b.wishlist) return false;
+    if (b.wishlist || b.status === 'recommendation') return false;
     if (q && !b.title.toLowerCase().includes(q) && !b.writer.toLowerCase().includes(q)) return false;
     if (fs && b.status !== fs) return false;
     return true;
@@ -643,7 +643,7 @@ function render() {
 }
 function switchTab(tab,el) {
   currentTab=tab;
-  ['collection','lent','wishlist','stats'].forEach(t=>document.getElementById('tab-'+t).style.display=t===tab?'block':'none');
+  ['collection','lent','wishlist','recommendations','stats'].forEach(t=>document.getElementById('tab-'+t).style.display=t===tab?'block':'none');
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
   el.classList.add('active'); render();
 }
@@ -773,7 +773,7 @@ async function submitRecommendation() {
   const cover = await fetchCover(title, writer);
   const book = { 
     id: Date.now(), title, writer, cover, 
-    recommendedBy: name, wishlist: false, status: 'want' 
+    recommendedBy: name, wishlist: false, status: 'recommendation' 
   };
   
   books.push(book);
