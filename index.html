@@ -513,31 +513,44 @@ function coverHtml(b) {
           </a>`;
 }
 
+/* ── Book card ── */
 function bookCard(b) {
   const lentInfo = b.lent ? `<div class="lent-info">Lent to <strong>${b.lentTo}</strong>${b.lentDate?' &middot; '+b.lentDate:''}</div>` : '';
-  // Show recommender name if it exists
   const recInfo = b.recommendedBy ? `<div class="lent-info">Recommended by: <strong>${b.recommendedBy}</strong></div>` : '';
+
   const borrowBtn = (!b.wishlist && b.status !== 'recommendation')
     ? `<button class="btn btn-borrow" onclick="openModal('borrow',${b.id})">
         ${b.lent ? 'Join Waitlist' : 'Request borrow'}
        </button>` 
     : '';
+
   const ownerBtns = isOwner ? `
     <button class="btn btn-sm" onclick="editBook(${b.id})">Edit</button>
     ${b.lent
       ? `<button class="btn btn-sm" onclick="returnBook(${b.id})">Returned</button>`
       : `<button class="btn btn-sm" onclick="lendBook(${b.id})">Lend out</button>`}
     <button class="btn btn-sm btn-danger" onclick="deleteBook(${b.id})">Remove</button>` : '';
+  
   const hasActions = borrowBtn || ownerBtns;
+
+  // Unified Badge Logic: determines the single most important status to show
+  let badgeHtml = '';
+  if (b.wishlist) {
+    badgeHtml = '<span class="badge badge-wishlist">Wishlist</span>';
+  } else if (b.status === 'recommendation') {
+    badgeHtml = '<span class="badge badge-reading">Recommendation</span>';
+  } else {
+    badgeHtml = statusBadge(b.status);
+  }
+
   return `<div class="book-card${b.lent?' lent':''}">
     <div class="book-cover-wrap">${coverHtml(b)}</div>
     <div class="book-body">
       <div class="book-title">${b.title}</div>
       <div class="book-author">${b.writer}</div>
       <div class="book-meta">
-        ${b.wishlist?'<span class="badge badge-wishlist">Wishlist</span>':statusBadge(b.status)}
-        ${b.lent?'<span class="badge badge-lent">Lent out</span>':''}
-        ${b.recommendedBy ? '<span class="badge badge-reading">Recommendation</span>' : statusBadge(b.status)}
+        ${badgeHtml}
+        ${b.lent ? '<span class="badge badge-lent">Lent out</span>' : ''}
       </div>
       ${b.notes?`<div class="book-notes">"${b.notes}"</div>`:''}
       ${lentInfo}
