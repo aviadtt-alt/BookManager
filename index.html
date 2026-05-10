@@ -602,7 +602,7 @@ function renderWishlist() {
     : '<div class="empty">Your wishlist is empty.</div>';
 }
 function renderStats() {
-  const col = books.filter(b => !b.wishlist);
+  const col = books.filter(b => !b.wishlist && b.status !== 'recommendation');
   const read = col.filter(b=>b.status==='read').length;
   const reading = col.filter(b=>b.status==='reading').length;
   const want = col.filter(b=>b.status==='want').length;
