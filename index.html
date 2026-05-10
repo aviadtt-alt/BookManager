@@ -747,6 +747,7 @@ function openModal(mode,id) {
         <option value="want" ${(b.status||'want')==='want'?'selected':''}>Want to read</option>
         <option value="reading" ${b.status==='reading'?'selected':''}>Currently reading</option>
         <option value="read" ${b.status==='read'?'selected':''}>Read</option>
+        <option value="recommendation" ${b.status==='recommendation'?'selected':''}>Recommended</option>
       </select></div>
       <div class="fg"><label>Notes</label>
         <textarea id="m-notes" placeholder="הערות אישיות...">${b.notes||''}</textarea></div>`:''}
