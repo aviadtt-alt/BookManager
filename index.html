@@ -8,7 +8,7 @@
 <title>Aviad's Book Collection</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-:root{
+:root {
   --bg-primary:#ffffff;--bg-secondary:#f5f5f0;--bg-tertiary:#eeede8;
   --text-primary:#1a1a1a;--text-secondary:#666660;--text-tertiary:#999993;
   --border-faint:rgba(0,0,0,0.12);--border-mid:rgba(0,0,0,0.22);--border-strong:rgba(0,0,0,0.32);
@@ -16,11 +16,22 @@
   --sans:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Arial,sans-serif;
   --mono:'SFMono-Regular',Consolas,monospace;
 }
-@media(prefers-color-scheme:dark){:root{
+
+/* This block allows the manual toggle to work */
+[data-theme="dark"] {
   --bg-primary:#1e1e1e;--bg-secondary:#2a2a2a;--bg-tertiary:#333;
   --text-primary:#f0f0f0;--text-secondary:#aaa;--text-tertiary:#777;
   --border-faint:rgba(255,255,255,0.1);--border-mid:rgba(255,255,255,0.2);--border-strong:rgba(255,255,255,0.32);
-}}
+}
+
+/* Keep this so it still respects system settings by default */
+@media(prefers-color-scheme:dark) {
+  :root:not([data-theme="light"]) {
+    --bg-primary:#1e1e1e;--bg-secondary:#2a2a2a;--bg-tertiary:#333;
+    --text-primary:#f0f0f0;--text-secondary:#aaa;--text-tertiary:#777;
+    --border-faint:rgba(255,255,255,0.1);--border-mid:rgba(255,255,255,0.2);--border-strong:rgba(255,255,255,0.32);
+  }
+}
 body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);color:var(--text-primary)}
 .app{padding:1.5rem 1rem;max-width:1000px;margin:0 auto}
 .topbar{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:1.5rem}
@@ -48,11 +59,25 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
 .tab{padding:8px 16px;font-size:14px;cursor:pointer;color:var(--text-secondary);border-bottom:2px solid transparent;background:none;border-top:none;border-left:none;border-right:none}
 .tab.active{color:var(--text-primary);border-bottom-color:var(--text-primary);font-weight:500}
 /* Book grid — cover layout */
-.book-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:16px}
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 12px; /* Slightly reduced gap to save space on mobile */
+}
 .book-card{background:var(--bg-primary);border:.5px solid var(--border-faint);border-radius:var(--radius-lg);overflow:hidden;display:flex;flex-direction:column}
 .book-card.lent{border-top:3px solid #EF9F27}
 .book-cover-wrap{width:100%;aspect-ratio:2/3;background:var(--bg-secondary);flex-shrink:0;overflow:hidden;position:relative}
 .book-cover-wrap img{width:100%;height:100%;object-fit:cover;display:block}
+.book-cover-wrap a {
+  display: block;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+.book-cover-wrap a:hover {
+  opacity: 0.9;
+  transition: opacity 0.2s;
+}
 .book-cover-ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:6px}
 .book-cover-ph svg{opacity:.2}
 .book-cover-ph span{font-size:11px;color:var(--text-tertiary);text-align:center;padding:0 4px}
@@ -108,7 +133,30 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
 .setup-banner code{font-family:var(--mono);font-size:11px;background:rgba(255,255,255,.6);padding:1px 5px;border-radius:4px}
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid var(--border-mid);border-top-color:var(--text-primary);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
 @keyframes spin{to{transform:rotate(360deg)}}
-@media(max-width:500px){.stats-grid{grid-template-columns:repeat(2,1fr)}.stat-card:last-child{grid-column:span 2}}
+@media (max-width: 500px) {
+  .app {
+    padding: 1rem 0.5rem; /* Reduce side padding so books have more room */
+  }
+
+  .book-grid {
+    /* Force 2 columns regardless of minmax setting */
+    grid-template-columns: repeat(2, 1fr); 
+    gap: 8px;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .stat-card:last-child {
+    grid-column: span 2;
+  }
+
+  /* Optional: slightly shrink font sizes for titles to keep cards compact */
+  .book-title {
+    font-size: 13px;
+  }
+}
 </style>
 </head>
 <body>
@@ -118,6 +166,10 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
   <h1>Aviad's book collection</h1>
   <div class="topbar-right">
     <button class="btn" onclick="exportCsv()">Export CSV</button>
+    <button class="btn" onclick="openModal('recommend')">💡 Recommend a book</button>
+    <button class="btn" onclick="toggleTheme()" id="theme-toggle" title="Toggle Dark Mode">
+      <span id="theme-icon">🌓</span>
+    </button>
     <div id="owner-actions" style="display:none;gap:8px;flex-wrap:wrap">
       <button class="btn" onclick="openModal('import')">Import CSV</button>
       <button class="btn" onclick="openModal('wishlist')">+ Wishlist</button>
@@ -134,6 +186,7 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
   <button class="tab active" onclick="switchTab('collection',this)">Collection</button>
   <button class="tab" onclick="switchTab('lent',this)">Lent out</button>
   <button class="tab" onclick="switchTab('wishlist',this)">Wishlist</button>
+  <button class="tab" onclick="switchTab('recommendations',this)">Recommendations</button>
   <button class="tab" onclick="switchTab('stats',this)">Statistics</button>
 </div>
 
@@ -156,6 +209,7 @@ body{background:var(--bg-tertiary);min-height:100vh;font-family:var(--sans);colo
 </div>
 <div id="tab-lent" style="display:none"><div id="lent-list"></div></div>
 <div id="tab-wishlist" style="display:none"><div id="wishlist-list"></div></div>
+<div id="tab-recommendations" style="display:none"><div id="recommendations-list"></div></div>
 <div id="tab-stats" style="display:none"><div id="stats-content"></div></div>
 <div id="modal-root"></div>
 <form name="borrow-request" method="POST" action="/" data-netlify="true" netlify-honeypot="bot-field" hidden>
@@ -183,6 +237,29 @@ const OWNER_EMAIL      = 'aviadtt@gmail.com';
 
 let db = null, isOwner = false, books = [], currentTab = 'collection', csvFileContent = null;
 let pendingCover = null, coverFetchTimer = null;
+
+/* ── Theme Toggle Logic ── */
+function initTheme() {
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) {
+    document.documentElement.setAttribute('data-theme', savedTheme);
+    updateThemeIcon(savedTheme);
+  }
+}
+
+function toggleTheme() {
+  const currentTheme = document.documentElement.getAttribute('data-theme');
+  const targetTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  
+  document.documentElement.setAttribute('data-theme', targetTheme);
+  localStorage.setItem('theme', targetTheme);
+  updateThemeIcon(targetTheme);
+}
+
+function updateThemeIcon(theme) {
+  const icon = document.getElementById('theme-icon');
+  if (icon) icon.textContent = theme === 'dark' ? '☀️' : '🌙';
+}
 
 /* ── Supabase init ── */
 function initSupabase() {
@@ -217,11 +294,11 @@ async function deleteFromSupabase(id) {
 }
 function bookToDb(b) {
   return { id:b.id, title:b.title, writer:b.writer, status:b.status, notes:b.notes,
-    cover:b.cover||null, lent:b.lent, lent_to:b.lentTo, lent_date:b.lentDate, wishlist:b.wishlist };
+    cover:b.cover||null, lent:b.lent, lent_to:b.lentTo, lent_date:b.lentDate, wishlist:b.wishlist, recommended_by: b.recommendedBy };
 }
 function dbToBook(r) {
   return { id:r.id, title:r.title, writer:r.writer, status:r.status, notes:r.notes||'',
-    cover:r.cover||null, lent:r.lent||false, lentTo:r.lent_to||'', lentDate:r.lent_date||'', wishlist:r.wishlist||false };
+    cover:r.cover||null, lent:r.lent||false, lentTo:r.lent_to||'', lentDate:r.lent_date||'', wishlist:r.wishlist||false, recommendedBy: r.recommended_by || '' };
 }
 const LS_KEY = 'bookshelf_v6';
 function loadFromLocalStorage() {
@@ -424,33 +501,60 @@ function showCoverPlaceholder(imgEl) {
 
 function coverHtml(b) {
   const ph = defaultCoverPlaceholderHtml();
-  if (!b.cover) return ph;
-  return `<img src="${b.cover}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block" onerror="showCoverPlaceholder(this)">`;
+  const searchUrl = simaniaSearchUrl(b.title, b.writer);
+  
+  // Wrap the content in an anchor tag targeting Simania
+  const content = b.cover 
+    ? `<img src="${b.cover}" alt="" loading="lazy" style="width:100%;height:100%;object-fit:cover;display:block" onerror="showCoverPlaceholder(this)">`
+    : ph;
+
+  return `<a href="${searchUrl}" target="_blank" rel="noopener noreferrer" style="text-decoration:none; display:block; height:100%;">
+            ${content}
+          </a>`;
 }
 
+/* ── Book card ── */
 function bookCard(b) {
   const lentInfo = b.lent ? `<div class="lent-info">Lent to <strong>${b.lentTo}</strong>${b.lentDate?' &middot; '+b.lentDate:''}</div>` : '';
-  // Borrow button: show only for non-lent books in guest view, or owner can still see it
-  const borrowBtn = !b.lent && !b.wishlist
-    ? `<button class="btn btn-borrow" onclick="openModal('borrow',${b.id})">Request borrow</button>` : '';
+  const recInfo = b.recommendedBy ? `<div class="lent-info">Recommended by: <strong>${b.recommendedBy}</strong></div>` : '';
+
+  const borrowBtn = (!b.wishlist && b.status !== 'recommendation')
+    ? `<button class="btn btn-borrow" onclick="openModal('borrow',${b.id})">
+        ${b.lent ? 'Join Waitlist' : 'Request borrow'}
+       </button>` 
+    : '';
+
   const ownerBtns = isOwner ? `
     <button class="btn btn-sm" onclick="editBook(${b.id})">Edit</button>
     ${b.lent
       ? `<button class="btn btn-sm" onclick="returnBook(${b.id})">Returned</button>`
       : `<button class="btn btn-sm" onclick="lendBook(${b.id})">Lend out</button>`}
     <button class="btn btn-sm btn-danger" onclick="deleteBook(${b.id})">Remove</button>` : '';
+  
   const hasActions = borrowBtn || ownerBtns;
+
+  // Unified Badge Logic: determines the single most important status to show
+  let badgeHtml = '';
+  if (b.wishlist) {
+    badgeHtml = '<span class="badge badge-wishlist">Wishlist</span>';
+  } else if (b.status === 'recommendation') {
+    badgeHtml = '<span class="badge badge-reading">Recommendation</span>';
+  } else {
+    badgeHtml = statusBadge(b.status);
+  }
+
   return `<div class="book-card${b.lent?' lent':''}">
     <div class="book-cover-wrap">${coverHtml(b)}</div>
     <div class="book-body">
       <div class="book-title">${b.title}</div>
       <div class="book-author">${b.writer}</div>
       <div class="book-meta">
-        ${b.wishlist?'<span class="badge badge-wishlist">Wishlist</span>':statusBadge(b.status)}
-        ${b.lent?'<span class="badge badge-lent">Lent out</span>':''}
+        ${badgeHtml}
+        ${b.lent ? '<span class="badge badge-lent">Lent out</span>' : ''}
       </div>
       ${b.notes?`<div class="book-notes">"${b.notes}"</div>`:''}
       ${lentInfo}
+      ${recInfo}
       ${hasActions?`<div class="book-actions">${borrowBtn}${ownerBtns}</div>`:''}
     </div>
   </div>`;
@@ -488,7 +592,7 @@ function renderCollection() {
   const fs = document.getElementById('filterStatus').value;
   const sortBy = document.getElementById('sortBy')?.value || 'author';
   const filtered = books.filter(b => {
-    if (b.wishlist) return false;
+    if (b.wishlist || b.status === 'recommendation') return false;
     if (q && !b.title.toLowerCase().includes(q) && !b.writer.toLowerCase().includes(q)) return false;
     if (fs && b.status !== fs) return false;
     return true;
@@ -511,7 +615,7 @@ function renderWishlist() {
     : '<div class="empty">Your wishlist is empty.</div>';
 }
 function renderStats() {
-  const col = books.filter(b => !b.wishlist);
+  const col = books.filter(b => !b.wishlist && b.status !== 'recommendation');
   const read = col.filter(b=>b.status==='read').length;
   const reading = col.filter(b=>b.status==='reading').length;
   const want = col.filter(b=>b.status==='want').length;
@@ -532,7 +636,7 @@ function renderStats() {
     <div>${bars.map(b=>`<div class="chart-row"><div class="chart-row-label">${b.label}</div><div class="chart-bar-bg"><div class="chart-bar-fill" style="width:${Math.round(b.count/max*100)}%;background:${b.color}"></div></div><div class="chart-val">${b.count}</div></div>`).join('')}</div>`;
 }
 function renderTopStats() {
-  const col = books.filter(b=>!b.wishlist);
+  const col = books.filter(b=>!b.wishlist && b.status !== 'recommendation');
   const read = col.filter(b=>b.status==='read').length;
   const pct = col.length?Math.round(read/col.length*100):0;
   document.getElementById('stats-grid').innerHTML = `
@@ -548,10 +652,11 @@ function render() {
   else if (currentTab==='lent') renderLent();
   else if (currentTab==='wishlist') renderWishlist();
   else if (currentTab==='stats') renderStats();
+  else if (currentTab === 'recommendations') renderRecommendations();
 }
 function switchTab(tab,el) {
   currentTab=tab;
-  ['collection','lent','wishlist','stats'].forEach(t=>document.getElementById('tab-'+t).style.display=t===tab?'block':'none');
+  ['collection','lent','wishlist','recommendations','stats'].forEach(t=>document.getElementById('tab-'+t).style.display=t===tab?'block':'none');
   document.querySelectorAll('.tab').forEach(b=>b.classList.remove('active'));
   el.classList.add('active'); render();
 }
@@ -613,7 +718,16 @@ function openModal(mode,id) {
         <button class="btn" onclick="closeModal()">Cancel</button>
         <button class="btn btn-primary" onclick="doImport()">Import</button>
       </div>`;
-
+  } else if (mode === 'recommend') {
+  body = `<h2>Recommend a book</h2>
+    <div class="fg"><label>Book Title</label><input id="rec-title" placeholder="Title"></div>
+    <div class="fg"><label>Author</label><input id="rec-writer" placeholder="Author"></div>
+    <div class="fg"><label>Your Name</label><input id="rec-name" placeholder="Who are you?"></div>
+    <div id="rec-status" style="font-size:13px;min-height:18px"></div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitRecommendation()">Send Recommendation</button>
+    </div>`;
   } else {
     // add / edit / wishlist
     const thumbHtml = (id&&b.cover)
@@ -646,6 +760,7 @@ function openModal(mode,id) {
         <option value="want" ${(b.status||'want')==='want'?'selected':''}>Want to read</option>
         <option value="reading" ${b.status==='reading'?'selected':''}>Currently reading</option>
         <option value="read" ${b.status==='read'?'selected':''}>Read</option>
+        <option value="recommendation" ${b.status==='recommendation'?'selected':''}>Recommended</option>
       </select></div>
       <div class="fg"><label>Notes</label>
         <textarea id="m-notes" placeholder="הערות אישיות...">${b.notes||''}</textarea></div>`:''}
@@ -660,6 +775,32 @@ function openModal(mode,id) {
 
   if (mode==='login') setTimeout(()=>document.getElementById('pw-input')?.focus(), 50);
   if ((mode==='add'||mode==='wishlist')||(mode==='edit'&&!b.cover)) scheduleCoverFetch();
+}
+
+async function submitRecommendation() {
+  const title = document.getElementById('rec-title').value.trim();
+  const writer = document.getElementById('rec-writer').value.trim();
+  const name = document.getElementById('rec-name').value.trim();
+  
+  if(!title || !writer || !name) return alert("Please fill all fields");
+  
+  const cover = await fetchCover(title, writer);
+  const book = { 
+    id: Date.now(), title, writer, cover, 
+    recommendedBy: name, wishlist: false, status: 'recommendation' 
+  };
+  
+  books.push(book);
+  await persistSave(book);
+  closeModal();
+  render();
+}
+
+function renderRecommendations() {
+  const recs = books.filter(b => b.recommendedBy);
+  document.getElementById('recommendations-list').innerHTML = recs.length
+    ? `<div class="book-grid">${recs.map(bookCard).join('')}</div>`
+    : '<div class="empty">No recommendations yet. Be the first!</div>';
 }
 
 function bgClose(e) { if (e.target.classList.contains('modal-overlay')) closeModal(); }
@@ -947,6 +1088,8 @@ async function doImport() {
 /* ── Boot ── */
 checkOwnerSession();
 initSupabase();
+// Call initTheme immediately to prevent flash of white
+initTheme();
 </script>
 </body>
 </html>
